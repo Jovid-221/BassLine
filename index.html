@@ -3718,16 +3718,30 @@
     // 'zoom' and 'none' need no overlay here; zoom is applied via extra scale in drawImage instead
   }
 
+  function drawImageCover(ctx, img, dw, dh){
+    const iw = img.videoWidth || img.naturalWidth || img.width;
+    const ih = img.videoHeight || img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+    const imgRatio = iw / ih, dstRatio = dw / dh;
+    let sx, sy, sw, sh;
+    if (imgRatio > dstRatio) {
+      sh = ih; sw = ih * dstRatio; sx = (iw - sw) / 2; sy = 0;
+    } else {
+      sw = iw; sh = iw / dstRatio; sx = 0; sy = (ih - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+  }
+
   function drawExportBackground(exportCtx, res){
     if (bgImg.style.display === 'block' && bgImg.src) {
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgImg.style.opacity) || 1;
-      try { exportCtx.drawImage(bgImg, 0, 0, res.w, res.h); } catch (e) {}
+      try { drawImageCover(exportCtx, bgImg, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else if (bgVideo.style.display === 'block' && bgVideo.src && bgVideo.readyState >= 2) {
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgVideo.style.opacity) || 1;
-      try { exportCtx.drawImage(bgVideo, 0, 0, res.w, res.h); } catch (e) {}
+      try { drawImageCover(exportCtx, bgVideo, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else {
       const activeSwatch = document.querySelector('#bgPresetList .bg-swatch.active');
@@ -3916,6 +3930,8 @@
     exportCanvas.width = res.w;
     exportCanvas.height = res.h;
     const exportCtx = exportCanvas.getContext('2d');
+    exportCtx.fillStyle = '#000';
+    exportCtx.fillRect(0, 0, res.w, res.h);
 
     if (!audioReady) initAudioGraph();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
@@ -3932,6 +3948,7 @@
     }
 
     const videoStream = exportCanvas.captureStream(30);
+    await new Promise(r => setTimeout(r, 150));
     const combinedStream = new MediaStream([
       ...videoStream.getVideoTracks(),
       ...exportDest.stream.getAudioTracks()
@@ -3990,9 +4007,12 @@
 
     exportRunning = true;
     exportStartTime = performance.now();
-    mediaRecorder.start();
     const exportFrameRect = frame.getBoundingClientRect();
     const exportScaleX = res.w / exportFrameRect.width, exportScaleY = res.h / exportFrameRect.height;
+    drawExportBackground(exportCtx, res);
+    exportCtx.drawImage(canvas, 0, 0, res.w, res.h);
+    drawExportOverlays(exportCtx, res, exportFrameRect, exportScaleX, exportScaleY);
+    mediaRecorder.start(1000);
     copyExportFrame(exportCtx, res, exportFrameRect, exportScaleX, exportScaleY);
     exportStatusEl.textContent = 'Идёт запись... остановится сама в конце трека, или нажми "Остановить".';
     exportBtn.style.display = 'none';
