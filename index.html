@@ -2100,8 +2100,8 @@
     { type: 'slideDown', label: 'Слайд ↓', icon: '⇩' }
   ];
   const TRANSITION_DEFAULT_DURATION = 0.7;
-  const BG_BASE_OPACITY = 0.55;
-  const BG_BASE_FILTER = 'saturate(1.05) brightness(0.75)';
+  const BG_BASE_OPACITY = 0.92;
+  const BG_BASE_FILTER = 'saturate(1.05) brightness(0.95)';
 
   function setLayerContent(imgEl, videoEl, clip, autoplay){
     if (!clip) { imgEl.style.display = 'none'; videoEl.style.display = 'none'; videoEl.pause(); return; }
@@ -2202,7 +2202,7 @@
     const bgShakeX = beatFx.shake ? Math.sin(t * 13) * smoothBass * 5 : 0;
     const bgShakeY = beatFx.shake ? Math.cos(t * 17) * smoothBass * 5 : 0;
     const bgTransform = `scale(${bgScale}) rotate(${bgRotate}deg) translate(${bgShakeX}px, ${bgShakeY}px)`;
-    const bgBrightness = beatFx.brightness ? 0.72 + smoothBass * 0.38 : 0.75;
+    const bgBrightness = beatFx.brightness ? 0.85 + smoothBass * 0.35 : 0.95;
     const bgSaturate = beatFx.saturate ? 1.05 + smoothBass * 0.45 : 1.05;
     const bgContrast = beatFx.contrast ? 1 + smoothBass * 0.18 : 1;
     const bgHue = beatFx.hue ? smoothOverall * 10 : 0;
@@ -3010,7 +3010,7 @@
       const angle = idx * (Math.PI / 2);
       const dist = idx === 0 ? 0 : 65;
       layerSettings[v] = {
-        color: null, scale: 1, opacity: 1, rotate: 0,
+        color: null, scaleX: 1, scaleY: 1, opacity: 1, rotate: 0,
         offX: Math.round(Math.cos(angle) * dist),
         offY: Math.round(Math.sin(angle) * dist)
       };
@@ -3155,12 +3155,12 @@
     const g = vizGizmos[v];
     if (!g) return;
     const s = ensureLayerSettings(v);
-    g.wrap.style.transform = `translate(${s.offX}px, ${s.offY}px) rotate(${s.rotate || 0}deg) scale(${s.scale})`;
+    g.wrap.style.transform = `translate(${s.offX}px, ${s.offY}px) rotate(${s.rotate || 0}deg) scale(${s.scaleX}, ${s.scaleY})`;
   }
 
   function wireVizGizmo(v, wrap, box, resizeHandle, rotateHandle){
     let mode = null, startX = 0, startY = 0, origOffX = 0, origOffY = 0;
-    let resizeStartDist = 1, resizeStartScale = 1;
+    let resizeStartDX = 1, resizeStartDY = 1, resizeStartScaleX = 1, resizeStartScaleY = 1;
     function center(){
       const r = box.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -3173,8 +3173,10 @@
         if (kind === 'move') { startX = p.x; startY = p.y; origOffX = s.offX; origOffY = s.offY; }
         else if (kind === 'resize') {
           const c = center();
-          resizeStartDist = Math.max(10, Math.hypot(p.x - c.x, p.y - c.y));
-          resizeStartScale = s.scale;
+          resizeStartDX = Math.max(10, Math.abs(p.x - c.x));
+          resizeStartDY = Math.max(10, Math.abs(p.y - c.y));
+          resizeStartScaleX = s.scaleX;
+          resizeStartScaleY = s.scaleY;
         }
         e.stopPropagation();
         if (e.cancelable) e.preventDefault();
@@ -3189,8 +3191,9 @@
         s.offY = Math.max(-300, Math.min(300, origOffY + (p.y - startY)));
       } else if (mode === 'resize') {
         const c = center();
-        const dist = Math.hypot(p.x - c.x, p.y - c.y);
-        s.scale = Math.max(0.4, Math.min(2.5, resizeStartScale * (dist / resizeStartDist)));
+        const dx = Math.abs(p.x - c.x), dy = Math.abs(p.y - c.y);
+        s.scaleX = Math.max(0.4, Math.min(3, resizeStartScaleX * (dx / resizeStartDX)));
+        s.scaleY = Math.max(0.4, Math.min(3, resizeStartScaleY * (dy / resizeStartDY)));
       } else if (mode === 'rotate') {
         const c = center();
         const ang = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI;
@@ -3214,7 +3217,9 @@
     box.addEventListener('wheel', (e) => {
       e.preventDefault();
       const s = ensureLayerSettings(v);
-      s.scale = Math.max(0.4, Math.min(2.5, s.scale - e.deltaY * 0.001));
+      const factor = 1 - e.deltaY * 0.001;
+      s.scaleX = Math.max(0.4, Math.min(3, s.scaleX * factor));
+      s.scaleY = Math.max(0.4, Math.min(3, s.scaleY * factor));
       applyLayerGizmoTransform(v);
     }, { passive: false });
   }
@@ -3488,7 +3493,7 @@
   document.getElementById('resetAllVizPos').addEventListener('click', () => {
     selectedVariants.forEach(v => {
       const s = ensureLayerSettings(v);
-      s.offX = 0; s.offY = 0; s.scale = 1; s.rotate = 0;
+      s.offX = 0; s.offY = 0; s.scaleX = 1; s.scaleY = 1; s.rotate = 0;
       applyLayerGizmoTransform(v);
     });
   });
@@ -3905,7 +3910,7 @@
 
     const layers = selectedVariants;
     layers.forEach((layerVariant) => {
-      const ls = layerSettings[layerVariant] || { scale: 1, opacity: 1, offX: 0, offY: 0, rotate: 0, color: null };
+      const ls = layerSettings[layerVariant] || { scaleX: 1, scaleY: 1, opacity: 1, offX: 0, offY: 0, rotate: 0, color: null };
       const useCustomColor = !!ls.color;
       if (useCustomColor) {
         colorLayerCtx.clearRect(0, 0, colorLayerCanvas.width, colorLayerCanvas.height);
@@ -3917,7 +3922,7 @@
       ctx.globalAlpha = (layers.length > 1 ? 0.62 : 1) * ls.opacity;
       ctx.translate(cx + ls.offX, cy + ls.offY);
       if (ls.rotate) ctx.rotate(ls.rotate * Math.PI / 180);
-      ctx.scale(ls.scale, ls.scale);
+      ctx.scale(ls.scaleX, ls.scaleY);
       ctx.translate(-cx, -cy);
       let variant = layerVariant;
 
