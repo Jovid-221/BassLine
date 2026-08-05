@@ -121,6 +121,12 @@
   }
   .viz-gizmo-remove:hover{ background:#ff4d4d; }
   #customTextGizmoContainer{ position:absolute; inset:0; pointer-events:none; z-index:51; }
+  #bgGizmoContainer{ position:absolute; inset:0; pointer-events:none; z-index:48; }
+  .bg-gizmo-wrap{ position:absolute; inset:0; pointer-events:none; }
+  .bg-gizmo-box{
+    position:absolute; left:8%; top:8%; width:84%; height:84%;
+    pointer-events:auto; cursor:move; touch-action:none;
+  }
   .ctext-gizmo-wrap{
     position:absolute; inset:0; pointer-events:none;
     transform-origin: 50% 50%;
@@ -440,7 +446,7 @@
     background:repeating-linear-gradient(45deg,#e8112b 0 14px,#0a0a0a 14px 28px);
   }
   #timelineBar{
-    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    position:fixed; left:0; right:0; bottom:0; z-index:25;
     background:#0a0a0a; border-top:3px solid transparent;
     border-image: repeating-linear-gradient(45deg,#e8112b 0 14px,#0a0a0a 14px 28px) 3;
     padding:12px 16px 16px; max-height:50vh;
@@ -801,6 +807,7 @@
       </div>
     </div>
 
+    <div id="bgGizmoContainer"></div>
     <div id="vizGizmoContainer"></div>
     <div id="customTextGizmoContainer"></div>
   </div>
@@ -2153,7 +2160,7 @@
     const bgRotate = beatFx.wobble ? Math.sin(t * 1.4) * smoothBass * 1.8 : 0;
     const bgShakeX = beatFx.shake ? Math.sin(t * 13) * smoothBass * 5 : 0;
     const bgShakeY = beatFx.shake ? Math.cos(t * 17) * smoothBass * 5 : 0;
-    const bgTransform = `scale(${bgScale}) rotate(${bgRotate}deg) translate(${bgShakeX}px, ${bgShakeY}px)`;
+    const bgTransform = `translate(${bgAdjust.offX}px, ${bgAdjust.offY}px) rotate(${bgAdjust.rotate}deg) scale(${bgAdjust.scaleX}, ${bgAdjust.scaleY}) scale(${bgScale}) rotate(${bgRotate}deg) translate(${bgShakeX}px, ${bgShakeY}px)`;
     const bgBrightness = beatFx.brightness ? 0.85 + smoothBass * 0.35 : 0.95;
     const bgSaturate = beatFx.saturate ? 1.05 + smoothBass * 0.45 : 1.05;
     const bgContrast = beatFx.contrast ? 1 + smoothBass * 0.18 : 1;
@@ -2333,6 +2340,7 @@
     renderPhotoTracks();
     emptyState.classList.add('hidden');
     rebuildVizGizmos();
+    rebuildBgGizmo();
   }
 
   addClipBtn.addEventListener('click', () => { pendingAppendTrack = null; clipPhotoInput.click(); });
@@ -3238,6 +3246,108 @@
   rebuildVizGizmos();
 
   // ---- Custom text layers: unlimited, independently positioned/rotated/scaled, own font each ----
+  // ---- Background photo/video on-screen adjustment: move, resize (independent axes), rotate ----
+  let bgAdjust = { offX: 0, offY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
+  const bgGizmoContainer = document.getElementById('bgGizmoContainer');
+  let bgGizmo = null;
+
+  function wireBgGizmo(box, resizeHandle, rotateHandle){
+    let mode = null, startX = 0, startY = 0, origOffX = 0, origOffY = 0;
+    let resizeStartDX = 1, resizeStartDY = 1, resizeStartScaleX = 1, resizeStartScaleY = 1;
+    function center(){
+      const r = box.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+    function down(kind){
+      return (e) => {
+        mode = kind;
+        const p = pointerPos(e);
+        if (kind === 'move') { startX = p.x; startY = p.y; origOffX = bgAdjust.offX; origOffY = bgAdjust.offY; }
+        else if (kind === 'resize') {
+          const c = center();
+          resizeStartDX = Math.max(10, Math.abs(p.x - c.x));
+          resizeStartDY = Math.max(10, Math.abs(p.y - c.y));
+          resizeStartScaleX = bgAdjust.scaleX;
+          resizeStartScaleY = bgAdjust.scaleY;
+        }
+        e.stopPropagation();
+        if (e.cancelable) e.preventDefault();
+      };
+    }
+    function move(e){
+      if (!mode) return;
+      const p = pointerPos(e);
+      if (mode === 'move') {
+        bgAdjust.offX = Math.max(-400, Math.min(400, origOffX + (p.x - startX)));
+        bgAdjust.offY = Math.max(-400, Math.min(400, origOffY + (p.y - startY)));
+      } else if (mode === 'resize') {
+        const c = center();
+        const dx = Math.abs(p.x - c.x), dy = Math.abs(p.y - c.y);
+        bgAdjust.scaleX = Math.max(0.4, Math.min(3, resizeStartScaleX * (dx / resizeStartDX)));
+        bgAdjust.scaleY = Math.max(0.4, Math.min(3, resizeStartScaleY * (dy / resizeStartDY)));
+      } else if (mode === 'rotate') {
+        const c = center();
+        const ang = Math.atan2(p.y - c.y, p.x - c.x) * 180 / Math.PI;
+        let rot = ang + 90;
+        const nearest45 = Math.round(rot / 45) * 45;
+        if (Math.abs(rot - nearest45) <= 7) rot = nearest45;
+        bgAdjust.rotate = Math.round(rot);
+      }
+    }
+    box.addEventListener('mousedown', down('move'));
+    box.addEventListener('touchstart', down('move'), { passive: false });
+    resizeHandle.addEventListener('mousedown', down('resize'));
+    resizeHandle.addEventListener('touchstart', down('resize'), { passive: false });
+    rotateHandle.addEventListener('mousedown', down('rotate'));
+    rotateHandle.addEventListener('touchstart', down('rotate'), { passive: false });
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchmove', (e) => { if (mode) move(e); }, { passive: true });
+    window.addEventListener('mouseup', () => { mode = null; });
+    window.addEventListener('touchend', () => { mode = null; });
+    box.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = 1 - e.deltaY * 0.001;
+      bgAdjust.scaleX = Math.max(0.4, Math.min(3, bgAdjust.scaleX * factor));
+      bgAdjust.scaleY = Math.max(0.4, Math.min(3, bgAdjust.scaleY * factor));
+    }, { passive: false });
+  }
+
+  function rebuildBgGizmo(){
+    bgGizmoContainer.innerHTML = '';
+    bgGizmo = null;
+    if (!photoTracks.length || !emptyState.classList.contains('hidden')) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'bg-gizmo-wrap';
+
+    const box = document.createElement('div');
+    box.className = 'bg-gizmo-box';
+    wrap.appendChild(box);
+
+    const selectBox = document.createElement('div');
+    selectBox.className = 'select-box active';
+    selectBox.style.borderColor = '#75e3d8';
+
+    const rotateHandle = document.createElement('div');
+    rotateHandle.className = 'handle rotate-handle';
+    rotateHandle.innerHTML = '&#8635;';
+    rotateHandle.style.background = '#75e3d8';
+
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'handle resize-handle';
+    resizeHandle.innerHTML = '&#8600;';
+    resizeHandle.style.background = '#75e3d8';
+
+    selectBox.appendChild(rotateHandle);
+    selectBox.appendChild(resizeHandle);
+    wrap.appendChild(selectBox);
+    bgGizmoContainer.appendChild(wrap);
+
+    syncSelectBox(selectBox, box);
+    bgGizmo = { wrap, box, selectBox, resizeHandle, rotateHandle };
+    wireBgGizmo(box, resizeHandle, rotateHandle);
+  }
+
   let customTexts = [];
   let customTextIdSeq = 1;
   const customTextGizmos = {};
@@ -3441,6 +3551,7 @@
 
   window.addEventListener('resize', () => {
     Object.keys(vizGizmos).forEach(v => syncSelectBox(vizGizmos[v].selectBox, vizGizmos[v].box));
+    if (bgGizmo) syncSelectBox(bgGizmo.selectBox, bgGizmo.box);
   });
 
   document.getElementById('resetAllVizPos').addEventListener('click', () => {
@@ -3725,14 +3836,23 @@
   }
 
   function drawExportBackground(exportCtx, res){
+    const scaleX = res.w / frame.clientWidth, scaleY = res.h / frame.clientHeight;
     if (bgImg.style.display === 'block' && bgImg.src) {
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgImg.style.opacity) || 1;
+      exportCtx.translate(res.w / 2 + bgAdjust.offX * scaleX, res.h / 2 + bgAdjust.offY * scaleY);
+      exportCtx.rotate(bgAdjust.rotate * Math.PI / 180);
+      exportCtx.scale(bgAdjust.scaleX, bgAdjust.scaleY);
+      exportCtx.translate(-res.w / 2, -res.h / 2);
       try { drawImageCover(exportCtx, bgImg, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else if (bgVideo.style.display === 'block' && bgVideo.src && bgVideo.readyState >= 2) {
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgVideo.style.opacity) || 1;
+      exportCtx.translate(res.w / 2 + bgAdjust.offX * scaleX, res.h / 2 + bgAdjust.offY * scaleY);
+      exportCtx.rotate(bgAdjust.rotate * Math.PI / 180);
+      exportCtx.scale(bgAdjust.scaleX, bgAdjust.scaleY);
+      exportCtx.translate(-res.w / 2, -res.h / 2);
       try { drawImageCover(exportCtx, bgVideo, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else {
