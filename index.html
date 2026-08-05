@@ -1030,6 +1030,10 @@
   <div class="section section-viz">
     <div class="section-label" data-i18n="sec_viz">Визуализация</div>
     <div class="variants" id="variantList">
+      <div class="vbtn active" data-v="ringspectrum"><b>Кольцо-спектр</b>ровно по всему кругу</div>
+      <div class="vbtn" data-v="ringburst"><b>Кольцо-всплеск</b>скопление на одной стороне</div>
+      <div class="vbtn" data-v="wavespike"><b>Волна-всплеск</b>пик слева, хвост из точек</div>
+      <div class="vbtn" data-v="wavecenter"><b>Волна-центр</b>пик в центре, точки по краям</div>
     </div>
     <div id="vizLayerControls"></div>
   </div>
@@ -2749,7 +2753,8 @@
     vuneedle:'ring', snow:'snowfall', hexpulse:'ring', laser:'rays', minimalpulse:'ring',
     doublepulse:'ring', dotpulse:'ring', breathe:'ring', tickring:'ring', linepulse:'wave',
     musiccard:'disc', neonring:'disc', glasscard:'wave', wavethin:'wavebars', wavegaps:'wavebars', bassvoice:'bars',
-    bassvoicetb:'bars', freq3way:'bars', bassvoicering:'ring', bassvoicemirror:'bars'
+    bassvoicetb:'bars', freq3way:'bars', bassvoicering:'ring', bassvoicemirror:'bars',
+    ringspectrum:'ring', ringburst:'ring', wavespike:'wavebars', wavecenter:'wavebars'
   };
   const ICON_COLORS = [
     'rgba(232,17,43,0.95)',   // red
@@ -2960,8 +2965,8 @@
   thumbLoop();
 
   // ---- Variant selection (multi-select up to 4 layers) ----
-  let variant = null;
-  let selectedVariants = [];
+  let variant = 'ringspectrum';
+  let selectedVariants = ['ringspectrum'];
   const MAX_LAYERS = 4;
   const layerSettings = {}; // per-variant: { hue, scale, opacity, offX, offY, rotate }
   function ensureLayerSettings(v){
@@ -4506,6 +4511,100 @@
         const x = (w / 2) + i * barW;
         ctx.fillStyle = `rgba(${cyan},${0.55 + v * 0.45})`;
         ctx.fillRect(x, (h - barH) / 2, barW * 0.8, barH);
+      }
+    }
+
+    else if (variant === 'ringspectrum') {
+      const segs = 64;
+      const baseR = Math.min(w, h) * 0.28;
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      const useRange = Math.floor(bufferLength * 0.5);
+      for (let i = 0; i < segs; i++) {
+        const idxStart = Math.floor((i / segs) * useRange);
+        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / segs) * useRange));
+        let sum = 0;
+        for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
+        const v = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 2.8);
+        const barLen = 4 + v * Math.min(w, h) * 0.22;
+        const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
+        const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
+        const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `rgba(255,255,255,${0.45 + v * 0.55})`;
+        ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    else if (variant === 'ringburst') {
+      const segs = 72;
+      const baseR = Math.min(w, h) * 0.28;
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      const useRange = Math.floor(bufferLength * 0.8);
+      for (let i = 0; i < segs; i++) {
+        const idxStart = Math.floor((i / segs) * useRange);
+        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / segs) * useRange));
+        let sum = 0;
+        for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
+        const v = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 3.4);
+        const barLen = 3 + v * Math.min(w, h) * 0.26;
+        const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
+        const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
+        const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
+        const hue = 340 - (i / segs) * 90;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `hsla(${hue},90%,58%,${0.55 + v * 0.45})`;
+        ctx.lineWidth = 3; ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+    }
+
+    else if (variant === 'wavespike') {
+      const bars = 100;
+      const barW = w / bars;
+      const useRange = Math.floor(bufferLength * 0.5);
+      for (let i = 0; i < bars; i++) {
+        const idxStart = Math.floor((i / bars) * useRange);
+        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / bars) * useRange));
+        let sum = 0;
+        for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
+        const raw = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 3.2);
+        const envelope = Math.exp(-i / (bars * 0.16));
+        const v = Math.max(0.025, raw * envelope);
+        const barH = v * h * 0.92;
+        const x = i * barW + barW * 0.2;
+        ctx.fillStyle = `rgba(80,230,120,${0.55 + v * 0.45})`;
+        ctx.fillRect(x, (h - barH) / 2, Math.max(1.5, barW * 0.55), barH);
+      }
+    }
+
+    else if (variant === 'wavecenter') {
+      const bars = 100;
+      const barW = w / bars;
+      const useRange = Math.floor(bufferLength * 0.5);
+      for (let i = 0; i < bars; i++) {
+        const idxStart = Math.floor((i / bars) * useRange);
+        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / bars) * useRange));
+        let sum = 0;
+        for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
+        const raw = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 3.2);
+        const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
+        const envelope = Math.exp(-distFromCenter * 3.2);
+        const v = Math.max(0.025, raw * envelope);
+        const barH = v * h * 0.92;
+        const x = i * barW + barW * 0.2;
+        ctx.fillStyle = `rgba(230,240,255,${0.55 + v * 0.45})`;
+        ctx.fillRect(x, (h - barH) / 2, Math.max(1.5, barW * 0.55), barH);
       }
     }
 
