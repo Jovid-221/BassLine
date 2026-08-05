@@ -3718,7 +3718,160 @@
     // 'zoom' and 'none' need no overlay here; zoom is applied via extra scale in drawImage instead
   }
 
-  function copyExportFrame(exportCtx, res){
+  function drawExportBackground(exportCtx, res){
+    if (bgImg.style.display === 'block' && bgImg.src) {
+      exportCtx.save();
+      exportCtx.globalAlpha = parseFloat(bgImg.style.opacity) || 1;
+      try { exportCtx.drawImage(bgImg, 0, 0, res.w, res.h); } catch (e) {}
+      exportCtx.restore();
+    } else if (bgVideo.style.display === 'block' && bgVideo.src && bgVideo.readyState >= 2) {
+      exportCtx.save();
+      exportCtx.globalAlpha = parseFloat(bgVideo.style.opacity) || 1;
+      try { exportCtx.drawImage(bgVideo, 0, 0, res.w, res.h); } catch (e) {}
+      exportCtx.restore();
+    } else {
+      const activeSwatch = document.querySelector('#bgPresetList .bg-swatch.active');
+      const bg = activeSwatch ? activeSwatch.dataset.bg : 'none';
+      const presetFills = {
+        fire: ['rgba(255,60,20,0.35)', '#2a0505', '#060606'],
+        ocean: ['rgba(20,140,255,0.3)', '#052030', '#060a0c'],
+        violet: ['rgba(170,40,255,0.32)', '#200530', '#0a060c'],
+        emerald: ['rgba(20,220,120,0.28)', '#052a15', '#06100a'],
+        gold: ['rgba(255,190,40,0.3)', '#302005', '#0c0a06'],
+        rose: ['rgba(255,40,140,0.3)', '#300520', '#0c060a'],
+        ice: ['rgba(150,220,255,0.25)', '#0a1520', '#06090c']
+      };
+      exportCtx.fillStyle = '#0f0f0f';
+      exportCtx.fillRect(0, 0, res.w, res.h);
+      if (bg === 'midnight') {
+        const g = exportCtx.createLinearGradient(0, 0, res.w * 0.6, res.h);
+        g.addColorStop(0, '#1a0a30'); g.addColorStop(0.6, '#050510'); g.addColorStop(1, '#000');
+        exportCtx.fillStyle = g; exportCtx.fillRect(0, 0, res.w, res.h);
+      } else if (bg === 'cyber') {
+        exportCtx.fillStyle = '#06060c'; exportCtx.fillRect(0, 0, res.w, res.h);
+        const g1 = exportCtx.createLinearGradient(0, 0, res.w, res.h);
+        g1.addColorStop(0, 'rgba(0,230,255,0.25)'); g1.addColorStop(0.5, 'transparent');
+        exportCtx.fillStyle = g1; exportCtx.fillRect(0, 0, res.w, res.h);
+        const g2 = exportCtx.createLinearGradient(res.w, 0, 0, res.h);
+        g2.addColorStop(0, 'rgba(255,0,200,0.25)'); g2.addColorStop(0.5, 'transparent');
+        exportCtx.fillStyle = g2; exportCtx.fillRect(0, 0, res.w, res.h);
+      } else if (presetFills[bg]) {
+        const [glow, mid, base] = presetFills[bg];
+        exportCtx.fillStyle = base; exportCtx.fillRect(0, 0, res.w, res.h);
+        const g1 = exportCtx.createRadialGradient(res.w/2, res.h*0.4, 0, res.w/2, res.h*0.4, Math.max(res.w,res.h)*0.6);
+        g1.addColorStop(0, mid); g1.addColorStop(1, base);
+        exportCtx.fillStyle = g1; exportCtx.fillRect(0, 0, res.w, res.h);
+        const g2 = exportCtx.createRadialGradient(res.w/2, res.h*0.4, 0, res.w/2, res.h*0.4, Math.max(res.w,res.h)*0.35);
+        g2.addColorStop(0, glow); g2.addColorStop(1, 'transparent');
+        exportCtx.fillStyle = g2; exportCtx.fillRect(0, 0, res.w, res.h);
+      }
+    }
+  }
+
+  function drawExportDomText(exportCtx, el, scaleX, scaleY, frameRect, opts){
+    opts = opts || {};
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || parseFloat(cs.opacity) === 0) return;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return;
+    const x = (r.left - frameRect.left) * scaleX;
+    const y = (r.top - frameRect.top) * scaleY;
+    const w = r.width * scaleX;
+    const h = r.height * scaleY;
+    exportCtx.save();
+    exportCtx.globalAlpha = parseFloat(cs.opacity);
+    if (opts.box) {
+      exportCtx.fillStyle = cs.backgroundColor;
+      exportCtx.strokeStyle = cs.borderTopColor;
+      exportCtx.lineWidth = parseFloat(cs.borderTopWidth) || 0;
+      const rad = parseFloat(cs.borderRadius) * scaleX || 0;
+      exportCtx.beginPath();
+      exportCtx.roundRect ? exportCtx.roundRect(x, y, w, h, rad) : exportCtx.rect(x, y, w, h);
+      exportCtx.fill();
+      if (exportCtx.lineWidth > 0) exportCtx.stroke();
+    }
+    const fontSize = parseFloat(cs.fontSize) * scaleY;
+    exportCtx.font = `${cs.fontWeight} ${fontSize}px ${cs.fontFamily}`;
+    exportCtx.fillStyle = cs.color;
+    exportCtx.textBaseline = 'middle';
+    exportCtx.textAlign = 'center';
+    const text = opts.text !== undefined ? opts.text : el.textContent;
+    if (text) exportCtx.fillText(text, x + w / 2, y + h / 2, w);
+    exportCtx.restore();
+  }
+
+  function drawExportOverlays(exportCtx, res, frameRect, scaleX, scaleY){
+    const activeTimer = document.querySelector('.timer-style.active');
+    if (activeTimer) {
+      if (activeTimer.id === 'timerRing') {
+        const r = activeTimer.getBoundingClientRect();
+        const cx = (r.left + r.width/2 - frameRect.left) * scaleX;
+        const cy = (r.top + r.height/2 - frameRect.top) * scaleY;
+        const rad = (r.width/2 - 3) * scaleX;
+        const progress = parseFloat(ringCircle.style.getPropertyValue('--progress')) || 0;
+        exportCtx.save();
+        exportCtx.beginPath();
+        exportCtx.arc(cx, cy, rad, 0, Math.PI*2);
+        exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+        exportCtx.lineWidth = 5 * scaleX; exportCtx.stroke();
+        exportCtx.beginPath();
+        exportCtx.arc(cx, cy, rad, -Math.PI/2, -Math.PI/2 + progress*Math.PI*2);
+        exportCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--cyan') || '#e8112b';
+        exportCtx.lineWidth = 5 * scaleX; exportCtx.stroke();
+        exportCtx.font = `${10*scaleY}px ${getComputedStyle(ringLabel).fontFamily}`;
+        exportCtx.fillStyle = '#f5ece0';
+        exportCtx.textAlign = 'center'; exportCtx.textBaseline = 'middle';
+        exportCtx.fillText(ringLabel.textContent, cx, cy);
+        exportCtx.restore();
+      } else if (activeTimer.id === 'timerProgress') {
+        const track = activeTimer.querySelector('.progress-track');
+        if (track) {
+          const r = track.getBoundingClientRect();
+          const x = (r.left - frameRect.left) * scaleX, y = (r.top + r.height/2 - frameRect.top) * scaleY;
+          const w = r.width * scaleX;
+          const progress = parseFloat(progressFill.style.width) / 100 || 0;
+          exportCtx.save();
+          exportCtx.fillStyle = 'rgba(255,255,255,0.15)';
+          exportCtx.fillRect(x, y - scaleY, w, 3*scaleY);
+          exportCtx.fillStyle = '#e8112b';
+          exportCtx.fillRect(x, y - scaleY, w * progress, 3*scaleY);
+          exportCtx.restore();
+        }
+        drawExportDomText(exportCtx, progressStart, scaleX, scaleY, frameRect);
+        drawExportDomText(exportCtx, progressEnd, scaleX, scaleY, frameRect);
+      } else {
+        const hasBox = ['timerClassic','timerLed','timerFilm','timerCountdown'].includes(activeTimer.id);
+        drawExportDomText(exportCtx, activeTimer, scaleX, scaleY, frameRect, { box: hasBox });
+      }
+    }
+
+    if (textWrap.classList.contains('shown')) {
+      [textTitleEl, textArtistEl, textExtraEl].forEach(el => {
+        if (el && el.textContent.trim()) drawExportDomText(exportCtx, el, scaleX, scaleY, frameRect);
+      });
+    }
+
+    customTexts.forEach(s => {
+      const g = customTextGizmos[s.id];
+      if (!g) return;
+      const cx = frameRect.width / 2 * scaleX, cy = frameRect.height / 2 * scaleY;
+      exportCtx.save();
+      exportCtx.translate(cx + s.offX * scaleX, cy + s.offY * scaleY);
+      exportCtx.rotate(s.rotate * Math.PI / 180);
+      exportCtx.scale(s.scaleX, s.scaleY);
+      const cs = getComputedStyle(g.content);
+      const fontSize = parseFloat(cs.fontSize) * scaleY;
+      exportCtx.font = `${cs.fontWeight} ${fontSize}px ${cs.fontFamily}`;
+      exportCtx.fillStyle = cs.color;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'middle';
+      exportCtx.fillText(s.content, 0, 0);
+      exportCtx.restore();
+    });
+  }
+
+  function copyExportFrame(exportCtx, res, frameRect, scaleX, scaleY){
     if (!exportRunning) return;
     const introType = introSelectEl.value;
     const outroType = outroSelectEl.value;
@@ -3733,6 +3886,8 @@
     if (introType === 'zoom' && introProgress < 1) zoomScale = 1.18 - 0.18*introProgress;
     if (outroType === 'zoom' && outroProgress > 0) zoomScale = 1 + 0.18*outroProgress;
 
+    drawExportBackground(exportCtx, res);
+
     if (zoomScale !== 1) {
       const dw = res.w*zoomScale, dh = res.h*zoomScale;
       exportCtx.drawImage(canvas, (res.w-dw)/2, (res.h-dh)/2, dw, dh);
@@ -3740,13 +3895,15 @@
       exportCtx.drawImage(canvas, 0, 0, res.w, res.h);
     }
 
+    drawExportOverlays(exportCtx, res, frameRect, scaleX, scaleY);
+
     if (introProgress < 1 && introType !== 'none' && introType !== 'zoom') {
       applyTransition(exportCtx, res, introType, introProgress, 'in');
     }
     if (outroProgress > 0 && outroType !== 'none' && outroType !== 'zoom') {
       applyTransition(exportCtx, res, outroType, outroProgress, 'out');
     }
-    requestAnimationFrame(() => copyExportFrame(exportCtx, res));
+    requestAnimationFrame(() => copyExportFrame(exportCtx, res, frameRect, scaleX, scaleY));
   }
 
   exportBtn.addEventListener('click', async () => {
@@ -3834,7 +3991,9 @@
     exportRunning = true;
     exportStartTime = performance.now();
     mediaRecorder.start();
-    copyExportFrame(exportCtx, res);
+    const exportFrameRect = frame.getBoundingClientRect();
+    const exportScaleX = res.w / exportFrameRect.width, exportScaleY = res.h / exportFrameRect.height;
+    copyExportFrame(exportCtx, res, exportFrameRect, exportScaleX, exportScaleY);
     exportStatusEl.textContent = 'Идёт запись... остановится сама в конце трека, или нажми "Остановить".';
     exportBtn.style.display = 'none';
     stopExportBtn.style.display = '';
