@@ -3774,27 +3774,44 @@
       ...exportDest.stream.getAudioTracks()
     ]);
 
-    let mimeType = 'video/webm;codecs=vp9,opus';
     if (typeof MediaRecorder === 'undefined') {
       exportStatusEl.textContent = 'Экспорт видео не поддерживается в этом браузере.';
       return;
     }
-    if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+    const mp4Candidates = [
+      'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4'
+    ];
+    let mimeType = null;
+    for (const candidate of mp4Candidates) {
+      if (MediaRecorder.isTypeSupported(candidate)) { mimeType = candidate; break; }
+    }
+    const isMp4 = !!mimeType;
+    if (!mimeType) {
+      mimeType = 'video/webm;codecs=vp9,opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) mimeType = 'video/webm';
+    }
 
     recordedChunks = [];
     mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
     mediaRecorder.onstop = () => {
       exportRunning = false;
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const outputType = isMp4 ? 'video/mp4' : 'video/webm';
+      const ext = isMp4 ? 'mp4' : 'webm';
+      const blob = new Blob(recordedChunks, { type: outputType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'waveframe-' + resolutionSelectEl.value + '.webm';
+      a.download = 'waveframe-' + resolutionSelectEl.value + '.' + ext;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      exportStatusEl.textContent = 'Готово! Файл сохранён — можешь загрузить его на телефон или компьютер.';
+      exportStatusEl.textContent = isMp4
+        ? 'Готово! MP4-файл сохранён — можешь загрузить его на телефон или компьютер.'
+        : 'Готово! Этот браузер не умеет писать MP4 напрямую, сохранил в WebM (тоже открывается почти везде).';
       exportBtn.style.display = '';
       stopExportBtn.style.display = 'none';
     };
