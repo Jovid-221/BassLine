@@ -3724,8 +3724,9 @@
     const outroType = outroSelectEl.value;
     const elapsed = (performance.now() - exportStartTime) / 1000;
     const introProgress = Math.min(1, elapsed / 1);
+    const totalT = getTotalDuration();
     let remaining = Infinity;
-    if (audioReady && isFinite(audio.duration)) remaining = audio.duration - audio.currentTime;
+    if (totalT > 0) remaining = totalT - getTimelineTime();
     const outroProgress = (remaining >= 0 && remaining < 1) ? (1 - remaining) : 0;
 
     let zoomScale = 1;
@@ -3749,8 +3750,8 @@
   }
 
   exportBtn.addEventListener('click', async () => {
-    if (!audioReady) {
-      exportStatusEl.textContent = 'Сначала добавь аудио-дорожку на таймлайне.';
+    if (audioTracks.length === 0 && photoTracks.length === 0) {
+      exportStatusEl.textContent = 'Сначала добавь аудио-дорожку или фото на таймлайне.';
       return;
     }
     const res = RES_PRESETS[resolutionSelectEl.value] || RES_PRESETS['1080p'];
@@ -3759,9 +3760,14 @@
     exportCanvas.height = res.h;
     const exportCtx = exportCanvas.getContext('2d');
 
+    if (!audioReady) initAudioGraph();
     if (audioCtx.state === 'suspended') await audioCtx.resume();
-    if (audio.paused) audio.play().catch(()=>{});
-    audio.currentTime = 0;
+
+    stopTimelineClock();
+    seekTimelineTo(0);
+    startTimelineClock();
+    updateTimelinePlayback();
+    playBtn.textContent = '❚❚';
 
     if (!exportDest) {
       exportDest = audioCtx.createMediaStreamDestination();
@@ -3816,11 +3822,14 @@
       stopExportBtn.style.display = 'none';
     };
 
-    function onAudioEnded(){
-      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-      audio.removeEventListener('ended', onAudioEnded);
-    }
-    audio.addEventListener('ended', onAudioEnded);
+    let exportEndCheck = setInterval(() => {
+      const totalT = getTotalDuration();
+      if (totalT > 0 && getTimelineTime() >= totalT - 0.05) {
+        clearInterval(exportEndCheck);
+        if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      }
+    }, 200);
+    mediaRecorder.addEventListener('stop', () => clearInterval(exportEndCheck));
 
     exportRunning = true;
     exportStartTime = performance.now();
