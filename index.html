@@ -1045,14 +1045,15 @@
       <div class="vbtn" data-v="glasscard"><b>Стекло-карточка</b>фото, волна, отражение</div>
       <div class="vbtn" data-v="wavethin"><b>Штрихи</b>тонкие столбики звука</div>
       <div class="vbtn" data-v="wavegaps"><b>Подкаст-волна</b>всплески и тишина</div>
+      <div class="vbtn" data-v="bassvoice"><b>Бас | Голос</b>слева бас, справа мелодия</div>
     </div>
     <div id="vizLayerControls"></div>
   </div>
 
   <div class="section section-sens">
     <div class="section-label" data-i18n="sec_sens">Чувствительность</div>
-    <div class="row"><label data-i18n="lbl_bass">Бас</label><input type="range" id="bassSens" min="0.5" max="2.5" step="0.05" value="1.3"></div>
-    <div class="row"><label data-i18n="lbl_overall">Общая</label><input type="range" id="overallSens" min="0.5" max="2.5" step="0.05" value="1"></div>
+    <div class="row"><label data-i18n="lbl_bass">Бас</label><input type="range" id="bassSens" min="0.5" max="6" step="0.05" value="2.2"></div>
+    <div class="row"><label data-i18n="lbl_overall">Общая</label><input type="range" id="overallSens" min="0.5" max="6" step="0.05" value="1.6"></div>
   </div>
 
   <div class="section section-pos">
@@ -2787,7 +2788,7 @@
     tree:'tree', crystals:'spiral', heartbeat:'wave', smoke:'fire', colorbands:'bars',
     vuneedle:'ring', snow:'snowfall', hexpulse:'ring', laser:'rays', minimalpulse:'ring',
     doublepulse:'ring', dotpulse:'ring', breathe:'ring', tickring:'ring', linepulse:'wave',
-    musiccard:'disc', neonring:'disc', glasscard:'wave', wavethin:'wavebars', wavegaps:'wavebars'
+    musiccard:'disc', neonring:'disc', glasscard:'wave', wavethin:'wavebars', wavegaps:'wavebars', bassvoice:'bars'
   };
   const ICON_COLORS = [
     'rgba(232,17,43,0.95)',   // red
@@ -3994,6 +3995,43 @@
 
     else if (variant === 'wavegaps') {
       drawTrackWaveformBars(ctx, w, h, cx, cy, 220, 0.55, cyan, 0.18);
+    }
+
+    else if (variant === 'bassvoice') {
+      const barsPerSide = 14;
+      const bassEnd = Math.max(2, Math.floor(bufferLength * 0.06));
+      const voiceStart = bassEnd;
+      const voiceEnd = Math.floor(bufferLength * 0.55);
+      const halfW = w / 2;
+      const barW = halfW / barsPerSide;
+
+      for (let i = 0; i < barsPerSide; i++) {
+        const idxStart = Math.floor((i / barsPerSide) * bassEnd);
+        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / barsPerSide) * bassEnd));
+        let sum = 0;
+        for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
+        const v = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 2.6);
+        const barH = v * h * 0.85;
+        const x = i * barW + barW * 0.15;
+        ctx.fillStyle = `rgba(${magenta},${0.55 + v * 0.45})`;
+        ctx.fillRect(x, h - barH, barW * 0.7, barH);
+      }
+
+      for (let i = 0; i < barsPerSide; i++) {
+        const span = voiceEnd - voiceStart;
+        const idxStart = voiceStart + Math.floor((i / barsPerSide) * span);
+        const idxEnd = voiceStart + Math.max(1, Math.floor(((i + 1) / barsPerSide) * span));
+        let sum = 0;
+        for (let k = idxStart; k < idxEnd && k < bufferLength; k++) sum += freqData[k];
+        const v = Math.min(1, (sum / Math.max(1, idxEnd - idxStart) / 255) * 1.5);
+        const barH = v * h * 0.85;
+        const x = halfW + i * barW + barW * 0.15;
+        ctx.fillStyle = `rgba(${cyan},${0.55 + v * 0.45})`;
+        ctx.fillRect(x, h - barH, barW * 0.7, barH);
+      }
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath(); ctx.moveTo(halfW, 0); ctx.lineTo(halfW, h); ctx.stroke();
     }
 
     else if (variant === 'grid') {
