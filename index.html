@@ -2958,8 +2958,8 @@
   thumbLoop();
 
   // ---- Variant selection (multi-select up to 4 layers) ----
-  let variant = 'bars';
-  let selectedVariants = ['bars'];
+  let variant = 'bassvoice';
+  let selectedVariants = ['bassvoice'];
   const MAX_LAYERS = 4;
   const layerSettings = {}; // per-variant: { hue, scale, opacity, offX, offY, rotate }
   function ensureLayerSettings(v){
@@ -3196,7 +3196,7 @@
 
       const box = document.createElement('div');
       box.className = 'viz-gizmo-box';
-      const boxSize = Math.max(22, 50 - idx * 10);
+      const boxSize = Math.max(30, 94 - idx * 10);
       box.style.width = boxSize + '%';
       box.style.height = boxSize + '%';
       box.style.left = ((100 - boxSize) / 2) + '%';
