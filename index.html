@@ -1036,12 +1036,13 @@
 
   <div class="section section-export">
     <div class="section-label" data-i18n="sec_export">Экспорт</div>
-    <select id="resolutionSelect" style="width:100%;margin-bottom:10px;padding:9px 10px;background:#0f0f0f;border:1px solid rgba(232,17,43,0.2);color:#f5ece0;border-radius:3px;font-family:var(--mono);font-size:12px;">
+    <select id="resolutionSelect" style="width:100%;margin-bottom:6px;padding:9px 10px;background:#0f0f0f;border:1px solid rgba(232,17,43,0.2);color:#f5ece0;border-radius:3px;font-family:var(--mono);font-size:12px;">
       <option value="720p">720p (HD)</option>
       <option value="1080p" selected>1080p (Full HD)</option>
       <option value="1440p">1440p (2K)</option>
       <option value="4k">4K (2160p)</option>
     </select>
+    <div class="hint" style="margin-bottom:10px;">1440p и 4K требуют намного больше мощности и времени на запись — если экспорт долго не завершается на твоём устройстве, попробуй 1080p.</div>
     <button id="exportBtn" style="width:100%;padding:10px;background:#e8112b;border:none;color:#fff;border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;">&#9210; Экспорт видео</button>
     <button id="stopExportBtn" style="display:none;width:100%;padding:10px;background:#333;border:none;color:#fff;border-radius:3px;cursor:pointer;font-family:var(--mono);font-size:12px;font-weight:700;">&#9209; Остановить и скачать</button>
     <div class="hint" id="exportStatus" style="margin-top:8px;"></div>
@@ -3679,12 +3680,24 @@
   const exportBtn = document.getElementById('exportBtn');
   const stopExportBtn = document.getElementById('stopExportBtn');
   const exportStatusEl = document.getElementById('exportStatus');
-  const RES_PRESETS = {
-    '720p': {w:1280, h:720},
-    '1080p': {w:1920, h:1080},
-    '1440p': {w:2560, h:1440},
-    '4k': {w:3840, h:2160}
+  const RES_TIERS = {
+    '720p': 1280,
+    '1080p': 1920,
+    '1440p': 2560,
+    '4k': 3840
   };
+  function getExportResolution(){
+    const longEdge = RES_TIERS[resolutionSelectEl.value] || RES_TIERS['1080p'];
+    let w, h;
+    if (ratioW >= ratioH) {
+      w = longEdge;
+      h = Math.round(longEdge * ratioH / ratioW / 2) * 2;
+    } else {
+      h = longEdge;
+      w = Math.round(longEdge * ratioW / ratioH / 2) * 2;
+    }
+    return { w, h };
+  }
   let mediaRecorder = null;
   let recordedChunks = [];
   let exportStartTime = 0;
@@ -3782,102 +3795,142 @@
     }
   }
 
-  function drawExportDomText(exportCtx, el, scaleX, scaleY, frameRect, opts){
-    opts = opts || {};
-    if (!el) return;
-    const cs = getComputedStyle(el);
-    if (cs.display === 'none' || parseFloat(cs.opacity) === 0) return;
-    const r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) return;
-    const x = (r.left - frameRect.left) * scaleX;
-    const y = (r.top - frameRect.top) * scaleY;
-    const w = r.width * scaleX;
-    const h = r.height * scaleY;
-    exportCtx.save();
-    exportCtx.globalAlpha = parseFloat(cs.opacity);
-    if (opts.box) {
-      exportCtx.fillStyle = cs.backgroundColor;
-      exportCtx.strokeStyle = cs.borderTopColor;
-      exportCtx.lineWidth = parseFloat(cs.borderTopWidth) || 0;
-      const rad = parseFloat(cs.borderRadius) * scaleX || 0;
-      exportCtx.beginPath();
-      exportCtx.roundRect ? exportCtx.roundRect(x, y, w, h, rad) : exportCtx.rect(x, y, w, h);
-      exportCtx.fill();
-      if (exportCtx.lineWidth > 0) exportCtx.stroke();
-    }
-    const fontSize = parseFloat(cs.fontSize) * scaleY;
-    exportCtx.font = `${cs.fontWeight} ${fontSize}px ${cs.fontFamily}`;
-    exportCtx.fillStyle = cs.color;
-    exportCtx.textBaseline = 'middle';
-    exportCtx.textAlign = 'center';
-    const text = opts.text !== undefined ? opts.text : el.textContent;
-    if (text) exportCtx.fillText(text, x + w / 2, y + h / 2, w);
-    exportCtx.restore();
-  }
-
-  function drawExportOverlays(exportCtx, res, frameRect, scaleX, scaleY){
+  function computeExportOverlayCache(frameRect, scaleX, scaleY){
+    const cache = { frameRect, scaleX, scaleY };
     const activeTimer = document.querySelector('.timer-style.active');
+    cache.timerId = activeTimer ? activeTimer.id : null;
     if (activeTimer) {
       if (activeTimer.id === 'timerRing') {
         const r = activeTimer.getBoundingClientRect();
-        const cx = (r.left + r.width/2 - frameRect.left) * scaleX;
-        const cy = (r.top + r.height/2 - frameRect.top) * scaleY;
-        const rad = (r.width/2 - 3) * scaleX;
-        const progress = parseFloat(ringCircle.style.getPropertyValue('--progress')) || 0;
-        exportCtx.save();
-        exportCtx.beginPath();
-        exportCtx.arc(cx, cy, rad, 0, Math.PI*2);
-        exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
-        exportCtx.lineWidth = 5 * scaleX; exportCtx.stroke();
-        exportCtx.beginPath();
-        exportCtx.arc(cx, cy, rad, -Math.PI/2, -Math.PI/2 + progress*Math.PI*2);
-        exportCtx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--cyan') || '#e8112b';
-        exportCtx.lineWidth = 5 * scaleX; exportCtx.stroke();
-        exportCtx.font = `${10*scaleY}px ${getComputedStyle(ringLabel).fontFamily}`;
-        exportCtx.fillStyle = '#f5ece0';
-        exportCtx.textAlign = 'center'; exportCtx.textBaseline = 'middle';
-        exportCtx.fillText(ringLabel.textContent, cx, cy);
-        exportCtx.restore();
+        cache.ring = {
+          cx: (r.left + r.width/2 - frameRect.left) * scaleX,
+          cy: (r.top + r.height/2 - frameRect.top) * scaleY,
+          rad: (r.width/2 - 3) * scaleX,
+          color: getComputedStyle(document.documentElement).getPropertyValue('--cyan') || '#e8112b',
+          font: `${10*scaleY}px ${getComputedStyle(ringLabel).fontFamily}`
+        };
       } else if (activeTimer.id === 'timerProgress') {
         const track = activeTimer.querySelector('.progress-track');
         if (track) {
           const r = track.getBoundingClientRect();
-          const x = (r.left - frameRect.left) * scaleX, y = (r.top + r.height/2 - frameRect.top) * scaleY;
-          const w = r.width * scaleX;
-          const progress = parseFloat(progressFill.style.width) / 100 || 0;
-          exportCtx.save();
-          exportCtx.fillStyle = 'rgba(255,255,255,0.15)';
-          exportCtx.fillRect(x, y - scaleY, w, 3*scaleY);
-          exportCtx.fillStyle = '#e8112b';
-          exportCtx.fillRect(x, y - scaleY, w * progress, 3*scaleY);
-          exportCtx.restore();
+          cache.progress = {
+            x: (r.left - frameRect.left) * scaleX,
+            y: (r.top + r.height/2 - frameRect.top) * scaleY,
+            w: r.width * scaleX
+          };
         }
-        drawExportDomText(exportCtx, progressStart, scaleX, scaleY, frameRect);
-        drawExportDomText(exportCtx, progressEnd, scaleX, scaleY, frameRect);
+        cache.progressStartInfo = buildDomTextInfo(progressStart, scaleX, scaleY, frameRect);
+        cache.progressEndInfo = buildDomTextInfo(progressEnd, scaleX, scaleY, frameRect);
       } else {
         const hasBox = ['timerClassic','timerLed','timerFilm','timerCountdown'].includes(activeTimer.id);
-        drawExportDomText(exportCtx, activeTimer, scaleX, scaleY, frameRect, { box: hasBox });
+        cache.timerInfo = buildDomTextInfo(activeTimer, scaleX, scaleY, frameRect, hasBox);
       }
     }
-
-    if (textWrap.classList.contains('shown')) {
-      [textTitleEl, textArtistEl, textExtraEl].forEach(el => {
-        if (el && el.textContent.trim()) drawExportDomText(exportCtx, el, scaleX, scaleY, frameRect);
-      });
+    cache.textShown = textWrap.classList.contains('shown');
+    if (cache.textShown) {
+      cache.textInfos = [textTitleEl, textArtistEl, textExtraEl]
+        .filter(el => el && el.textContent.trim())
+        .map(el => buildDomTextInfo(el, scaleX, scaleY, frameRect));
     }
-
+    cache.customTextStyles = {};
     customTexts.forEach(s => {
       const g = customTextGizmos[s.id];
       if (!g) return;
-      const cx = frameRect.width / 2 * scaleX, cy = frameRect.height / 2 * scaleY;
+      const cs = getComputedStyle(g.content);
+      cache.customTextStyles[s.id] = `${cs.fontWeight} ${parseFloat(cs.fontSize)*scaleY}px ${cs.fontFamily}`;
+      cache.customTextColor = cs.color;
+    });
+    return cache;
+  }
+
+  function buildDomTextInfo(el, scaleX, scaleY, frameRect, box){
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || parseFloat(cs.opacity) === 0) return null;
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) return null;
+    return {
+      el, box: !!box,
+      x: (r.left - frameRect.left) * scaleX, y: (r.top - frameRect.top) * scaleY,
+      w: r.width * scaleX, h: r.height * scaleY,
+      opacity: parseFloat(cs.opacity),
+      bg: cs.backgroundColor, borderColor: cs.borderTopColor, borderW: parseFloat(cs.borderTopWidth) || 0,
+      radius: (parseFloat(cs.borderRadius) || 0) * scaleX,
+      font: `${cs.fontWeight} ${parseFloat(cs.fontSize) * scaleY}px ${cs.fontFamily}`,
+      color: cs.color
+    };
+  }
+
+  function paintDomTextInfo(exportCtx, info, text){
+    if (!info) return;
+    exportCtx.save();
+    exportCtx.globalAlpha = info.opacity;
+    if (info.box) {
+      exportCtx.fillStyle = info.bg;
+      exportCtx.strokeStyle = info.borderColor;
+      exportCtx.lineWidth = info.borderW;
+      exportCtx.beginPath();
+      if (exportCtx.roundRect) exportCtx.roundRect(info.x, info.y, info.w, info.h, info.radius); else exportCtx.rect(info.x, info.y, info.w, info.h);
+      exportCtx.fill();
+      if (exportCtx.lineWidth > 0) exportCtx.stroke();
+    }
+    exportCtx.font = info.font;
+    exportCtx.fillStyle = info.color;
+    exportCtx.textAlign = 'center';
+    exportCtx.textBaseline = 'middle';
+    if (text) exportCtx.fillText(text, info.x + info.w / 2, info.y + info.h / 2, info.w);
+    exportCtx.restore();
+  }
+
+  function drawExportOverlays(exportCtx, res, cache){
+    if (cache.timerId === 'timerRing' && cache.ring) {
+      const { cx, cy, rad, color, font } = cache.ring;
+      const progress = parseFloat(ringCircle.style.getPropertyValue('--progress')) || 0;
       exportCtx.save();
-      exportCtx.translate(cx + s.offX * scaleX, cy + s.offY * scaleY);
+      exportCtx.beginPath();
+      exportCtx.arc(cx, cy, rad, 0, Math.PI*2);
+      exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+      exportCtx.lineWidth = 5 * cache.scaleX; exportCtx.stroke();
+      exportCtx.beginPath();
+      exportCtx.arc(cx, cy, rad, -Math.PI/2, -Math.PI/2 + progress*Math.PI*2);
+      exportCtx.strokeStyle = color;
+      exportCtx.lineWidth = 5 * cache.scaleX; exportCtx.stroke();
+      exportCtx.font = font;
+      exportCtx.fillStyle = '#f5ece0';
+      exportCtx.textAlign = 'center'; exportCtx.textBaseline = 'middle';
+      exportCtx.fillText(ringLabel.textContent, cx, cy);
+      exportCtx.restore();
+    } else if (cache.timerId === 'timerProgress') {
+      if (cache.progress) {
+        const { x, y, w } = cache.progress;
+        const progress = parseFloat(progressFill.style.width) / 100 || 0;
+        exportCtx.save();
+        exportCtx.fillStyle = 'rgba(255,255,255,0.15)';
+        exportCtx.fillRect(x, y - cache.scaleY, w, 3*cache.scaleY);
+        exportCtx.fillStyle = '#e8112b';
+        exportCtx.fillRect(x, y - cache.scaleY, w * progress, 3*cache.scaleY);
+        exportCtx.restore();
+      }
+      paintDomTextInfo(exportCtx, cache.progressStartInfo, progressStart.textContent);
+      paintDomTextInfo(exportCtx, cache.progressEndInfo, progressEnd.textContent);
+    } else if (cache.timerInfo) {
+      const el = document.getElementById(cache.timerId);
+      paintDomTextInfo(exportCtx, cache.timerInfo, el ? el.textContent : '');
+    }
+
+    if (cache.textShown && cache.textInfos) {
+      cache.textInfos.forEach(info => { if (info) paintDomTextInfo(exportCtx, info, info.el.textContent); });
+    }
+
+    customTexts.forEach(s => {
+      const font = cache.customTextStyles[s.id];
+      if (!font) return;
+      const cx = cache.frameRect.width / 2 * cache.scaleX, cy = cache.frameRect.height / 2 * cache.scaleY;
+      exportCtx.save();
+      exportCtx.translate(cx + s.offX * cache.scaleX, cy + s.offY * cache.scaleY);
       exportCtx.rotate(s.rotate * Math.PI / 180);
       exportCtx.scale(s.scaleX, s.scaleY);
-      const cs = getComputedStyle(g.content);
-      const fontSize = parseFloat(cs.fontSize) * scaleY;
-      exportCtx.font = `${cs.fontWeight} ${fontSize}px ${cs.fontFamily}`;
-      exportCtx.fillStyle = cs.color;
+      exportCtx.font = font;
+      exportCtx.fillStyle = cache.customTextColor;
       exportCtx.textAlign = 'center';
       exportCtx.textBaseline = 'middle';
       exportCtx.fillText(s.content, 0, 0);
@@ -3885,7 +3938,7 @@
     });
   }
 
-  function copyExportFrame(exportCtx, res, frameRect, scaleX, scaleY){
+  function copyExportFrame(exportCtx, res, overlayCache){
     if (!exportRunning) return;
     const introType = introSelectEl.value;
     const outroType = outroSelectEl.value;
@@ -3909,7 +3962,7 @@
       exportCtx.drawImage(canvas, 0, 0, res.w, res.h);
     }
 
-    drawExportOverlays(exportCtx, res, frameRect, scaleX, scaleY);
+    drawExportOverlays(exportCtx, res, overlayCache);
 
     if (introProgress < 1 && introType !== 'none' && introType !== 'zoom') {
       applyTransition(exportCtx, res, introType, introProgress, 'in');
@@ -3917,7 +3970,7 @@
     if (outroProgress > 0 && outroType !== 'none' && outroType !== 'zoom') {
       applyTransition(exportCtx, res, outroType, outroProgress, 'out');
     }
-    requestAnimationFrame(() => copyExportFrame(exportCtx, res, frameRect, scaleX, scaleY));
+    requestAnimationFrame(() => copyExportFrame(exportCtx, res, overlayCache));
   }
 
   exportBtn.addEventListener('click', async () => {
@@ -3925,7 +3978,7 @@
       exportStatusEl.textContent = 'Сначала добавь аудио-дорожку или фото на таймлайне.';
       return;
     }
-    const res = RES_PRESETS[resolutionSelectEl.value] || RES_PRESETS['1080p'];
+    const res = getExportResolution();
     const exportCanvas = document.createElement('canvas');
     exportCanvas.width = res.w;
     exportCanvas.height = res.h;
@@ -3947,7 +4000,8 @@
       analyser.connect(exportDest);
     }
 
-    const videoStream = exportCanvas.captureStream(30);
+    const captureFps = (resolutionSelectEl.value === '4k') ? 20 : (resolutionSelectEl.value === '1440p') ? 25 : 30;
+    const videoStream = exportCanvas.captureStream(captureFps);
     await new Promise(r => setTimeout(r, 150));
     const combinedStream = new MediaStream([
       ...videoStream.getVideoTracks(),
@@ -3998,22 +4052,27 @@
 
     let exportEndCheck = setInterval(() => {
       const totalT = getTotalDuration();
-      if (totalT > 0 && getTimelineTime() >= totalT - 0.05) {
+      const curT = getTimelineTime();
+      if (totalT > 0 && curT >= totalT - 0.05) {
         clearInterval(exportEndCheck);
         if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+      } else if (mediaRecorder && mediaRecorder.state === 'recording') {
+        const pct = totalT > 0 ? Math.min(100, Math.round((curT / totalT) * 100)) : 0;
+        exportStatusEl.textContent = `Идёт запись... ${pct}% (это может занять больше времени на высоком разрешении). Можно остановить в любой момент кнопкой ниже.`;
       }
-    }, 200);
+    }, 300);
     mediaRecorder.addEventListener('stop', () => clearInterval(exportEndCheck));
 
     exportRunning = true;
     exportStartTime = performance.now();
     const exportFrameRect = frame.getBoundingClientRect();
     const exportScaleX = res.w / exportFrameRect.width, exportScaleY = res.h / exportFrameRect.height;
+    const overlayCache = computeExportOverlayCache(exportFrameRect, exportScaleX, exportScaleY);
     drawExportBackground(exportCtx, res);
     exportCtx.drawImage(canvas, 0, 0, res.w, res.h);
-    drawExportOverlays(exportCtx, res, exportFrameRect, exportScaleX, exportScaleY);
+    drawExportOverlays(exportCtx, res, overlayCache);
     mediaRecorder.start(1000);
-    copyExportFrame(exportCtx, res, exportFrameRect, exportScaleX, exportScaleY);
+    copyExportFrame(exportCtx, res, overlayCache);
     exportStatusEl.textContent = 'Идёт запись... остановится сама в конце трека, или нажми "Остановить".';
     exportBtn.style.display = 'none';
     stopExportBtn.style.display = '';
