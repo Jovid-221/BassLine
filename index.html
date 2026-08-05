@@ -426,7 +426,7 @@
     background:repeating-linear-gradient(45deg,#e8112b 0 14px,#0a0a0a 14px 28px);
   }
   #timelineBar{
-    position:fixed; left:0; right:0; bottom:0; z-index:25;
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
     background:#0a0a0a; border-top:3px solid transparent;
     border-image: repeating-linear-gradient(45deg,#e8112b 0 14px,#0a0a0a 14px 28px) 3;
     padding:12px 16px 16px; max-height:50vh;
@@ -798,12 +798,6 @@
     <button class="ticon dark" id="playBtn" title="Play/Pause" style="display:none;">▶</button>
   </div>
   <div class="topbar-spacer"></div>
-  <div class="variants" id="langList" style="grid-template-columns: repeat(4, 1fr); gap:4px; width:auto;">
-    <div class="vbtn active" data-lang="ru" style="text-align:center;padding:6px 8px;"><b>RU</b></div>
-    <div class="vbtn" data-lang="tg" style="text-align:center;padding:6px 8px;"><b>TJ</b></div>
-    <div class="vbtn" data-lang="uz" style="text-align:center;padding:6px 8px;"><b>UZ</b></div>
-    <div class="vbtn" data-lang="en" style="text-align:center;padding:6px 8px;"><b>EN</b></div>
-  </div>
 </div>
 
 <div id="panel">
@@ -1013,11 +1007,6 @@
   <div class="section section-viz">
     <div class="section-label" data-i18n="sec_viz">Визуализация</div>
     <div class="variants" id="variantList">
-      <div class="vbtn active" data-v="bassvoice"><b>Бас | Голос</b>слева бас, справа мелодия</div>
-      <div class="vbtn" data-v="bassvoicetb"><b>Бас / Голос</b>сверху бас, снизу мелодия</div>
-      <div class="vbtn" data-v="freq3way"><b>Три полосы</b>бас, середина, верха</div>
-      <div class="vbtn" data-v="bassvoicering"><b>Бас-кольцо</b>бас внутри, голос снаружи</div>
-      <div class="vbtn" data-v="bassvoicemirror"><b>Зеркало</b>бас и голос от центра</div>
     </div>
     <div id="vizLayerControls"></div>
   </div>
@@ -1065,8 +1054,7 @@
       <option value="beat">Бит</option>
       <option value="bar">Такт</option>
     </select></span>
-    <button id="lockToolBtn" type="button" class="timeline-tool-btn" title="Режим блокировки: кликни по клипу, чтобы заблокировать/разблокировать">🔒</button>
-    <button id="cutToolBtn" type="button" class="timeline-tool-btn" title="Режим разреза: кликни по клипу в нужном месте, чтобы разрезать">✂️</button>
+    <span style="flex:1;"></span>
     <button id="panelToggle" type="button" class="timeline-tool-btn" title="Показать/скрыть панель настроек">🎛️</button>
     <button id="timelineCollapseBtn" type="button" title="Свернуть">&#9660;</button>
   </div>
@@ -1678,16 +1666,7 @@
   const timelineCollapseBtn = document.getElementById('timelineCollapseBtn');
   const timelineResizeHandle = document.getElementById('timelineResizeHandle');
   const timelinePlayheadEl = document.getElementById('timelinePlayhead');
-  const lockToolBtn = document.getElementById('lockToolBtn');
-  const cutToolBtn = document.getElementById('cutToolBtn');
-  let activeTimelineTool = null; // 'lock' | 'cut' | null
-  function setActiveTimelineTool(tool){
-    activeTimelineTool = (activeTimelineTool === tool) ? null : tool;
-    lockToolBtn.classList.toggle('active', activeTimelineTool === 'lock');
-    cutToolBtn.classList.toggle('active', activeTimelineTool === 'cut');
-  }
-  lockToolBtn.addEventListener('click', () => setActiveTimelineTool('lock'));
-  cutToolBtn.addEventListener('click', () => setActiveTimelineTool('cut'));
+  let activeTimelineTool = null; // 'lock' | 'cut' | null — no toolbar toggle anymore, right-click menu still offers both per clip
   const timelineScrollXEl = document.getElementById('timelineScrollX');
   let PX_PER_SEC = 40;
   const PX_PER_SEC_MIN = 2;
@@ -2973,8 +2952,8 @@
   thumbLoop();
 
   // ---- Variant selection (multi-select up to 4 layers) ----
-  let variant = 'bassvoice';
-  let selectedVariants = ['bassvoice'];
+  let variant = null;
+  let selectedVariants = [];
   const MAX_LAYERS = 4;
   const layerSettings = {}; // per-variant: { hue, scale, opacity, offX, offY, rotate }
   function ensureLayerSettings(v){
