@@ -4515,21 +4515,22 @@
     }
 
     else if (variant === 'ringspectrum') {
-      const segs = 64;
-      const baseR = Math.min(w, h) * 0.28;
-      ctx.beginPath();
-      ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
-      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      const useRange = Math.floor(bufferLength * 0.5);
+      const segs = 80;
+      const baseR = Math.min(w, h) * 0.22;
+      const useRange = Math.floor(bufferLength * 0.55);
+      const skipBins = 2;
+      const raws = [];
       for (let i = 0; i < segs; i++) {
-        const idxStart = Math.floor((i / segs) * useRange);
-        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / segs) * useRange));
+        const idxStart = skipBins + Math.floor((i / segs) * (useRange - skipBins));
+        const idxEnd = Math.max(idxStart + 1, skipBins + Math.floor(((i + 1) / segs) * (useRange - skipBins)));
         let sum = 0;
         for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
-        const v = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 2.8);
-        const barLen = 4 + v * Math.min(w, h) * 0.22;
+        raws.push(Math.min(1, (sum / (idxEnd - idxStart) / 255) * 2.4));
+      }
+      for (let i = 0; i < segs; i++) {
+        const prev = raws[(i - 1 + segs) % segs], next = raws[(i + 1) % segs];
+        const v = raws[i] * 0.5 + prev * 0.25 + next * 0.25;
+        const barLen = Math.min(w, h) * 0.08 + v * Math.min(w, h) * 0.16;
         const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
         const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
         const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
@@ -4550,9 +4551,10 @@
       ctx.lineWidth = 1.5;
       ctx.stroke();
       const useRange = Math.floor(bufferLength * 0.8);
+      const skipBinsB = 2;
       for (let i = 0; i < segs; i++) {
-        const idxStart = Math.floor((i / segs) * useRange);
-        const idxEnd = Math.max(idxStart + 1, Math.floor(((i + 1) / segs) * useRange));
+        const idxStart = skipBinsB + Math.floor((i / segs) * (useRange - skipBinsB));
+        const idxEnd = Math.max(idxStart + 1, skipBinsB + Math.floor(((i + 1) / segs) * (useRange - skipBinsB)));
         let sum = 0;
         for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
         const v = Math.min(1, (sum / (idxEnd - idxStart) / 255) * 3.4);
