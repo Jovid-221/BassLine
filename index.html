@@ -170,10 +170,11 @@
     transition: border-color 0.15s ease;
   }
   .select-box.active{ display:block; }
-  .viz-gizmo-wrap:hover .select-box,
-  .ctext-gizmo-wrap:hover .select-box,
-  #timerWrap:hover .select-box,
-  #textWrap:hover .select-box{
+  .viz-gizmo-wrap.gizmo-active .select-box,
+  .ctext-gizmo-wrap.gizmo-active .select-box,
+  #timerWrap.gizmo-active .select-box,
+  #textWrap.gizmo-active .select-box,
+  .bg-gizmo-wrap.gizmo-active .select-box{
     border-color: var(--cyan);
   }
   .handle{
@@ -184,10 +185,11 @@
     pointer-events:auto; touch-action:none;
     opacity:0; transition: opacity 0.15s ease;
   }
-  .viz-gizmo-wrap:hover .handle,
-  .ctext-gizmo-wrap:hover .handle,
-  #timerWrap:hover .handle,
-  #textWrap:hover .handle{
+  .viz-gizmo-wrap.gizmo-active .handle,
+  .ctext-gizmo-wrap.gizmo-active .handle,
+  #timerWrap.gizmo-active .handle,
+  #textWrap.gizmo-active .handle,
+  .bg-gizmo-wrap.gizmo-active .handle{
     opacity:1;
   }
   .resize-handle{ bottom:-12px; right:-12px; cursor:nwse-resize; }
@@ -1127,6 +1129,29 @@
   const colorLayerCanvas = document.createElement('canvas');
   const colorLayerCtx = colorLayerCanvas.getContext('2d');
   const frame = document.getElementById('playerFrame');
+
+  const GIZMO_SELECTOR = '.viz-gizmo-wrap, .ctext-gizmo-wrap, #timerWrap, #textWrap, .bg-gizmo-wrap';
+  function clearAllGizmoActive(){
+    document.querySelectorAll('.gizmo-active').forEach(el => el.classList.remove('gizmo-active'));
+  }
+  document.addEventListener('mouseenter', (e) => {
+    const wrap = e.target.closest && e.target.closest(GIZMO_SELECTOR);
+    if (wrap) wrap.classList.add('gizmo-active');
+  }, true);
+  document.addEventListener('mouseleave', (e) => {
+    const wrap = e.target.closest && e.target.closest(GIZMO_SELECTOR);
+    if (wrap) wrap.classList.remove('gizmo-active');
+  }, true);
+  document.addEventListener('pointerdown', (e) => {
+    const wrap = e.target.closest && e.target.closest(GIZMO_SELECTOR);
+    if (wrap) {
+      clearAllGizmoActive();
+      wrap.classList.add('gizmo-active');
+    } else {
+      clearAllGizmoActive();
+    }
+  });
+
   const bgVideo = document.getElementById('bgMedia');
   const bgImg = document.getElementById('bgImg');
   const veilEl = document.getElementById('veil');
