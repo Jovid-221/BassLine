@@ -70,13 +70,13 @@
   }
   #bgMedia{
     position:absolute; inset:0; width:100%; height:100%;
-    object-fit: cover; opacity:0.55; filter: saturate(1.05) brightness(0.75);
+    object-fit: contain; opacity:0.55; filter: saturate(1.05) brightness(0.75);
     transition: transform 0.08s ease-out;
     display:none;
   }
   #bgMediaB, #bgImgB{
     position:absolute; inset:0; width:100%; height:100%;
-    object-fit: cover; opacity:0.55; filter: saturate(1.05) brightness(0.75);
+    object-fit: contain; opacity:0.55; filter: saturate(1.05) brightness(0.75);
     display:none;
   }
   #veil{
@@ -749,7 +749,7 @@
       <div id="stage">
         <div id="presetBgLayer"></div>
         <video id="bgMedia" muted loop playsinline></video>
-        <img id="bgImg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0.55;filter:saturate(1.05) brightness(0.75);display:none;">
+        <img id="bgImg" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0.55;filter:saturate(1.05) brightness(0.75);display:none;">
         <video id="bgMediaB" muted loop playsinline></video>
         <img id="bgImgB">
         <div id="veil"></div>
@@ -3871,39 +3871,43 @@
     // 'zoom' and 'none' need no overlay here; zoom is applied via extra scale in drawImage instead
   }
 
-  function drawImageCover(ctx, img, dw, dh){
+  function drawImageContain(ctx, img, dw, dh){
     const iw = img.videoWidth || img.naturalWidth || img.width;
     const ih = img.videoHeight || img.naturalHeight || img.height;
     if (!iw || !ih) return;
     const imgRatio = iw / ih, dstRatio = dw / dh;
-    let sx, sy, sw, sh;
+    let drawW, drawH, dx, dy;
     if (imgRatio > dstRatio) {
-      sh = ih; sw = ih * dstRatio; sx = (iw - sw) / 2; sy = 0;
+      drawW = dw; drawH = dw / imgRatio; dx = 0; dy = (dh - drawH) / 2;
     } else {
-      sw = iw; sh = iw / dstRatio; sx = 0; sy = (ih - sh) / 2;
+      drawH = dh; drawW = dh * imgRatio; dy = 0; dx = (dw - drawW) / 2;
     }
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, dw, dh);
+    ctx.drawImage(img, 0, 0, iw, ih, dx, dy, drawW, drawH);
   }
 
   function drawExportBackground(exportCtx, res){
     const scaleX = res.w / frame.clientWidth, scaleY = res.h / frame.clientHeight;
     if (bgImg.style.display === 'block' && bgImg.src) {
+      exportCtx.fillStyle = '#000';
+      exportCtx.fillRect(0, 0, res.w, res.h);
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgImg.style.opacity) || 1;
       exportCtx.translate(res.w / 2 + bgAdjust.offX * scaleX, res.h / 2 + bgAdjust.offY * scaleY);
       exportCtx.rotate(bgAdjust.rotate * Math.PI / 180);
       exportCtx.scale(bgAdjust.scaleX, bgAdjust.scaleY);
       exportCtx.translate(-res.w / 2, -res.h / 2);
-      try { drawImageCover(exportCtx, bgImg, res.w, res.h); } catch (e) {}
+      try { drawImageContain(exportCtx, bgImg, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else if (bgVideo.style.display === 'block' && bgVideo.src && bgVideo.readyState >= 2) {
+      exportCtx.fillStyle = '#000';
+      exportCtx.fillRect(0, 0, res.w, res.h);
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgVideo.style.opacity) || 1;
       exportCtx.translate(res.w / 2 + bgAdjust.offX * scaleX, res.h / 2 + bgAdjust.offY * scaleY);
       exportCtx.rotate(bgAdjust.rotate * Math.PI / 180);
       exportCtx.scale(bgAdjust.scaleX, bgAdjust.scaleY);
       exportCtx.translate(-res.w / 2, -res.h / 2);
-      try { drawImageCover(exportCtx, bgVideo, res.w, res.h); } catch (e) {}
+      try { drawImageContain(exportCtx, bgVideo, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else {
       const activeSwatch = document.querySelector('#bgPresetList .bg-swatch.active');
