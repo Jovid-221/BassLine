@@ -4517,7 +4517,7 @@
       const segs = 80;
       const baseR = Math.min(w, h) * 0.22;
       const useRange = Math.floor(bufferLength * 0.55);
-      const skipBins = 2;
+      const skipBins = Math.floor(bufferLength * 0.08);
       const raws = [];
       for (let i = 0; i < segs; i++) {
         const idxStart = skipBins + Math.floor((i / segs) * (useRange - skipBins));
@@ -4549,7 +4549,8 @@
       ctx.strokeStyle = 'rgba(255,255,255,0.18)';
       ctx.lineWidth = 1.5;
       ctx.stroke();
-      const vals = smoothedBandValues(freqData, bufferLength, segs, 2, 0.8, 2.6, true);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.8, 2.6, true);
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
         const barLen = 3 + v * Math.min(w, h) * 0.24;
@@ -4568,7 +4569,8 @@
     else if (variant === 'wavespike') {
       const bars = 100;
       const barW = w / bars;
-      const vals = smoothedBandValues(freqData, bufferLength, bars, 0, 0.5, 2.4, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
       for (let i = 0; i < bars; i++) {
         const envelope = Math.exp(-i / (bars * 0.16));
         const v = Math.max(0.025, vals[i] * envelope);
@@ -4582,7 +4584,8 @@
     else if (variant === 'wavecenter') {
       const bars = 100;
       const barW = w / bars;
-      const vals = smoothedBandValues(freqData, bufferLength, bars, 0, 0.5, 2.4, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
       for (let i = 0; i < bars; i++) {
         const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
         const envelope = Math.exp(-distFromCenter * 3.2);
@@ -4597,7 +4600,8 @@
     else if (variant === 'ringdots') {
       const segs = 64;
       const baseR = Math.min(w, h) * 0.28;
-      const vals = smoothedBandValues(freqData, bufferLength, segs, 2, 0.5, 2.2, true);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.5, 2.2, true);
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
         const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
@@ -4611,16 +4615,17 @@
 
     else if (variant === 'ringdouble') {
       const segs = 48;
-      const bassEnd = Math.max(2, Math.floor(bufferLength * 0.06));
+      const midStart = Math.floor(bufferLength * 0.08);
+      const midMid = Math.floor(bufferLength * 0.22);
       const innerR = Math.min(w, h) * 0.16, outerR = Math.min(w, h) * 0.32;
-      const bassVals = smoothedBandValues(freqData, bufferLength, segs, 0, 0.06, 2.2, true);
-      const voiceVals = smoothedBandValues(freqData, bufferLength, segs, bassEnd, 0.5, 2, true);
+      const innerVals = smoothedBandValues(freqData, bufferLength, segs, midStart, 0.22, 2.4, true);
+      const outerVals = smoothedBandValues(freqData, bufferLength, segs, midMid, 0.55, 2.2, true);
       for (let i = 0; i < segs; i++) {
         const a0 = (i / segs) * Math.PI * 2, a1 = ((i + 0.7) / segs) * Math.PI * 2;
-        const vb = bassVals[i];
+        const vb = innerVals[i];
         ctx.beginPath(); ctx.arc(cx, cy, innerR + vb * Math.min(w, h) * 0.08, a0, a1);
         ctx.strokeStyle = `rgba(${magenta},${0.5 + vb * 0.5})`; ctx.lineWidth = 3; ctx.stroke();
-        const vv = voiceVals[i];
+        const vv = outerVals[i];
         ctx.beginPath(); ctx.arc(cx, cy, outerR + vv * Math.min(w, h) * 0.1, a0, a1);
         ctx.strokeStyle = `rgba(${cyan},${0.5 + vv * 0.5})`; ctx.lineWidth = 3; ctx.stroke();
       }
@@ -4629,7 +4634,8 @@
     else if (variant === 'ringhalf') {
       const segs = 40;
       const baseR = Math.min(w, h) * 0.32;
-      const vals = smoothedBandValues(freqData, bufferLength, segs, 2, 0.55, 2.4, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.55, 2.4, false);
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
         const angle = Math.PI + (i / segs) * Math.PI;
@@ -4645,7 +4651,8 @@
     else if (variant === 'wavepodcast') {
       const bars = 120;
       const barW = w / bars;
-      const vals = smoothedBandValues(freqData, bufferLength, bars, 0, 0.5, 2.2, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.2, false);
       for (let i = 0; i < bars; i++) {
         const v = Math.max(0.03, vals[i]);
         const barH = v * h * 0.85;
@@ -4658,7 +4665,8 @@
     else if (variant === 'wavemirror') {
       const bars = 100;
       const barW = w / bars;
-      const vals = smoothedBandValues(freqData, bufferLength, bars, 0, 0.5, 2.4, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
       for (let i = 0; i < bars; i++) {
         const v = Math.max(0.02, vals[i]);
         const barH = v * h * 0.42;
@@ -4670,18 +4678,19 @@
     }
 
     else if (variant === 'pulsecore') {
-      const bassEnd = Math.max(2, Math.floor(bufferLength * 0.06));
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const musicCoreEnd = Math.floor(bufferLength * 0.2);
       let sum = 0;
-      for (let k = 0; k < bassEnd; k++) sum += freqData[k];
-      const bassV = Math.min(1, (sum / bassEnd / 255) * 2.4);
-      const r = Math.min(w, h) * 0.1 + bassV * Math.min(w, h) * 0.16;
+      for (let k = musicStart; k < musicCoreEnd; k++) sum += freqData[k];
+      const coreV = Math.min(1, (sum / (musicCoreEnd - musicStart) / 255) * 2.4);
+      const r = Math.min(w, h) * 0.1 + coreV * Math.min(w, h) * 0.16;
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,255,255,${0.5 + bassV * 0.5})`;
-      ctx.shadowColor = 'rgba(255,255,255,0.6)'; ctx.shadowBlur = 20 * bassV + 4;
+      ctx.fillStyle = `rgba(255,255,255,${0.5 + coreV * 0.5})`;
+      ctx.shadowColor = 'rgba(255,255,255,0.6)'; ctx.shadowBlur = 20 * coreV + 4;
       ctx.fill(); ctx.shadowBlur = 0;
 
       const segs = 48;
-      const vals = smoothedBandValues(freqData, bufferLength, segs, bassEnd, 0.5, 2, true);
+      const vals = smoothedBandValues(freqData, bufferLength, segs, musicCoreEnd, 0.5, 2, true);
       const dotR = Math.min(w, h) * 0.34;
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
@@ -4694,7 +4703,8 @@
 
     else if (variant === 'spiralbars') {
       const segs = 90;
-      const vals = smoothedBandValues(freqData, bufferLength, segs, 2, 0.6, 2.2, true);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.6, 2.2, true);
       const maxR = Math.min(w, h) * 0.36;
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
@@ -4713,7 +4723,8 @@
     else if (variant === 'framebars') {
       const segs = 60;
       const perSide = Math.floor(segs / 4);
-      const vals = smoothedBandValues(freqData, bufferLength, segs, 2, 0.55, 2.2, true);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.55, 2.2, true);
       const inset = Math.min(w, h) * 0.06;
       let idx = 0;
       for (let i = 0; i < perSide; i++) {
@@ -4740,7 +4751,8 @@
 
     else if (variant === 'dotsminimal') {
       const dots = 60;
-      const vals = smoothedBandValues(freqData, bufferLength, dots, 0, 0.5, 2.2, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, dots, musicStart, 0.5, 2.2, false);
       const spacing = w / dots;
       for (let i = 0; i < dots; i++) {
         const v = vals[i];
@@ -4755,7 +4767,8 @@
     else if (variant === 'barsminimal') {
       const bars = 70;
       const barW = w / bars;
-      const vals = smoothedBandValues(freqData, bufferLength, bars, 0, 0.5, 2.4, false);
+      const musicStart = Math.floor(bufferLength * 0.08);
+      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
       for (let i = 0; i < bars; i++) {
         const v = Math.max(0.02, vals[i]);
         const barH = v * h * 0.55;
