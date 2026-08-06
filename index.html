@@ -1046,6 +1046,7 @@
       <div class="vbtn" data-v="barsminimal"><b>Столбики-минимал</b>тонкие столбики по низу</div>
     </div>
     <div id="vizLayerControls"></div>
+    <div class="row"><label>Размер визуализации</label><input type="range" id="vizScaleSens" min="0.4" max="3" step="0.05" value="1"></div>
   </div>
 
   <div class="section section-sens">
@@ -1148,6 +1149,9 @@
       presetBgLayer.style.background = sw.dataset.bg === 'none' ? '#0f0f0f' : getComputedStyle(sw).backgroundImage;
       if (sw.dataset.bg !== 'none') {
         emptyState.classList.add('hidden');
+        bgPresetOverride = true;
+      } else {
+        bgPresetOverride = false;
       }
     });
   });
@@ -1608,6 +1612,15 @@
   const barWidSensEl = document.getElementById('barWidSens');
   let barWidMult = 1;
   barWidSensEl.addEventListener('input', () => { barWidMult = parseFloat(barWidSensEl.value) || 1; });
+  const vizScaleSensEl = document.getElementById('vizScaleSens');
+  vizScaleSensEl.addEventListener('input', () => {
+    const s = parseFloat(vizScaleSensEl.value) || 1;
+    selectedVariants.forEach(v => {
+      const ls = ensureLayerSettings(v);
+      ls.scaleX = s; ls.scaleY = s;
+      applyLayerGizmoTransform(v);
+    });
+  });
   const fontOptionsHTML = document.getElementById('fontOptionsTemplate').innerHTML;
   const newCustomTextInput = document.getElementById('newCustomTextInput');
   const newCustomTextFont = document.getElementById('newCustomTextFont');
@@ -2361,6 +2374,7 @@
     photoTracks.push({ id: trackIdSeq++, start, locked: false, clips: [{ id: trackIdSeq++, url, type, duration: 6, transitionIn: { type: 'none', duration: TRANSITION_DEFAULT_DURATION } }] });
     renderPhotoTracks();
     emptyState.classList.add('hidden');
+    bgPresetOverride = false;
     rebuildVizGizmos();
     rebuildBgGizmo();
   }
@@ -3087,7 +3101,9 @@
       } else {
         if (selectedVariants.length >= MAX_LAYERS) selectedVariants.shift();
         selectedVariants.push(v);
-        ensureLayerSettings(v);
+        const ls = ensureLayerSettings(v);
+        const s = parseFloat(vizScaleSensEl.value) || 1;
+        ls.scaleX = s; ls.scaleY = s;
       }
       document.querySelectorAll('#variantList .vbtn').forEach(b => {
         b.classList.toggle('active', selectedVariants.includes(b.dataset.v));
@@ -3298,6 +3314,7 @@
   // ---- Custom text layers: unlimited, independently positioned/rotated/scaled, own font each ----
   // ---- Background photo/video on-screen adjustment: move, resize (independent axes), rotate ----
   let bgAdjust = { offX: 0, offY: 0, scaleX: 1, scaleY: 1, rotate: 0 };
+  let bgPresetOverride = false;
   const bgGizmoContainer = document.getElementById('bgGizmoContainer');
   let bgGizmo = null;
 
@@ -3495,6 +3512,7 @@
       content.className = 'ctext-content';
       content.textContent = s.content;
       content.style.fontFamily = `"${s.font}", sans-serif`;
+      content.style.color = s.color || '#f5ece0';
       box.appendChild(content);
 
       const selectBox = document.createElement('div');
@@ -3571,8 +3589,26 @@
         if (g) g.content.style.fontFamily = `"${s.font}", sans-serif`;
       });
 
+      const colorRow = document.createElement('div');
+      colorRow.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;';
+      const colorLabel = document.createElement('span');
+      colorLabel.textContent = 'Цвет';
+      colorLabel.style.cssText = 'font-size:11px;color:#9a9a90;';
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = s.color || '#f5ece0';
+      colorInput.style.cssText = 'width:36px;height:26px;padding:0;border:1px solid rgba(232,17,43,0.2);border-radius:3px;background:none;cursor:pointer;';
+      colorInput.addEventListener('input', () => {
+        s.color = colorInput.value;
+        const g = customTextGizmos[s.id];
+        if (g) g.content.style.color = s.color;
+      });
+      colorRow.appendChild(colorLabel);
+      colorRow.appendChild(colorInput);
+
       row.appendChild(topRow);
       row.appendChild(fontSel);
+      row.appendChild(colorRow);
       customTextListEl.appendChild(row);
     });
   }
@@ -3585,6 +3621,7 @@
       id: customTextIdSeq++,
       content,
       font: newCustomTextFont.value,
+      color: '#f5ece0',
       offX: 0,
       offY: (idx % 5) * 55 - 110,
       scaleX: 1,
@@ -3885,11 +3922,48 @@
     ctx.drawImage(img, 0, 0, iw, ih, dx, dy, drawW, drawH);
   }
 
+  function drawPresetBackground(exportCtx, res){
+    const activeSwatch = document.querySelector('#bgPresetList .bg-swatch.active');
+    const bg = activeSwatch ? activeSwatch.dataset.bg : 'none';
+    const presetFills = {
+      fire: ['rgba(255,60,20,0.35)', '#2a0505', '#060606'],
+      ocean: ['rgba(20,140,255,0.3)', '#052030', '#060a0c'],
+      violet: ['rgba(170,40,255,0.32)', '#200530', '#0a060c'],
+      emerald: ['rgba(20,220,120,0.28)', '#052a15', '#06100a'],
+      gold: ['rgba(255,190,40,0.3)', '#302005', '#0c0a06'],
+      rose: ['rgba(255,40,140,0.3)', '#300520', '#0c060a'],
+      ice: ['rgba(150,220,255,0.25)', '#0a1520', '#06090c']
+    };
+    exportCtx.fillStyle = '#0f0f0f';
+    exportCtx.fillRect(0, 0, res.w, res.h);
+    if (bg === 'midnight') {
+      const g = exportCtx.createLinearGradient(0, 0, res.w * 0.6, res.h);
+      g.addColorStop(0, '#1a0a30'); g.addColorStop(0.6, '#050510'); g.addColorStop(1, '#000');
+      exportCtx.fillStyle = g; exportCtx.fillRect(0, 0, res.w, res.h);
+    } else if (bg === 'cyber') {
+      exportCtx.fillStyle = '#06060c'; exportCtx.fillRect(0, 0, res.w, res.h);
+      const g1 = exportCtx.createLinearGradient(0, 0, res.w, res.h);
+      g1.addColorStop(0, 'rgba(0,230,255,0.25)'); g1.addColorStop(0.5, 'transparent');
+      exportCtx.fillStyle = g1; exportCtx.fillRect(0, 0, res.w, res.h);
+      const g2 = exportCtx.createLinearGradient(res.w, 0, 0, res.h);
+      g2.addColorStop(0, 'rgba(255,0,200,0.25)'); g2.addColorStop(0.5, 'transparent');
+      exportCtx.fillStyle = g2; exportCtx.fillRect(0, 0, res.w, res.h);
+    } else if (presetFills[bg]) {
+      const [glow, mid, base] = presetFills[bg];
+      exportCtx.fillStyle = base; exportCtx.fillRect(0, 0, res.w, res.h);
+      const g1 = exportCtx.createRadialGradient(res.w/2, res.h*0.4, 0, res.w/2, res.h*0.4, Math.max(res.w,res.h)*0.6);
+      g1.addColorStop(0, mid); g1.addColorStop(1, base);
+      exportCtx.fillStyle = g1; exportCtx.fillRect(0, 0, res.w, res.h);
+      const g2 = exportCtx.createRadialGradient(res.w/2, res.h*0.4, 0, res.w/2, res.h*0.4, Math.max(res.w,res.h)*0.35);
+      g2.addColorStop(0, glow); g2.addColorStop(1, 'transparent');
+      exportCtx.fillStyle = g2; exportCtx.fillRect(0, 0, res.w, res.h);
+    }
+  }
+
   function drawExportBackground(exportCtx, res){
     const scaleX = res.w / frame.clientWidth, scaleY = res.h / frame.clientHeight;
     if (bgImg.style.display === 'block' && bgImg.src) {
-      exportCtx.fillStyle = '#000';
-      exportCtx.fillRect(0, 0, res.w, res.h);
+      drawPresetBackground(exportCtx, res);
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgImg.style.opacity) || 1;
       exportCtx.translate(res.w / 2 + bgAdjust.offX * scaleX, res.h / 2 + bgAdjust.offY * scaleY);
@@ -3899,8 +3973,7 @@
       try { drawImageContain(exportCtx, bgImg, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else if (bgVideo.style.display === 'block' && bgVideo.src && bgVideo.readyState >= 2) {
-      exportCtx.fillStyle = '#000';
-      exportCtx.fillRect(0, 0, res.w, res.h);
+      drawPresetBackground(exportCtx, res);
       exportCtx.save();
       exportCtx.globalAlpha = parseFloat(bgVideo.style.opacity) || 1;
       exportCtx.translate(res.w / 2 + bgAdjust.offX * scaleX, res.h / 2 + bgAdjust.offY * scaleY);
@@ -3910,41 +3983,7 @@
       try { drawImageContain(exportCtx, bgVideo, res.w, res.h); } catch (e) {}
       exportCtx.restore();
     } else {
-      const activeSwatch = document.querySelector('#bgPresetList .bg-swatch.active');
-      const bg = activeSwatch ? activeSwatch.dataset.bg : 'none';
-      const presetFills = {
-        fire: ['rgba(255,60,20,0.35)', '#2a0505', '#060606'],
-        ocean: ['rgba(20,140,255,0.3)', '#052030', '#060a0c'],
-        violet: ['rgba(170,40,255,0.32)', '#200530', '#0a060c'],
-        emerald: ['rgba(20,220,120,0.28)', '#052a15', '#06100a'],
-        gold: ['rgba(255,190,40,0.3)', '#302005', '#0c0a06'],
-        rose: ['rgba(255,40,140,0.3)', '#300520', '#0c060a'],
-        ice: ['rgba(150,220,255,0.25)', '#0a1520', '#06090c']
-      };
-      exportCtx.fillStyle = '#0f0f0f';
-      exportCtx.fillRect(0, 0, res.w, res.h);
-      if (bg === 'midnight') {
-        const g = exportCtx.createLinearGradient(0, 0, res.w * 0.6, res.h);
-        g.addColorStop(0, '#1a0a30'); g.addColorStop(0.6, '#050510'); g.addColorStop(1, '#000');
-        exportCtx.fillStyle = g; exportCtx.fillRect(0, 0, res.w, res.h);
-      } else if (bg === 'cyber') {
-        exportCtx.fillStyle = '#06060c'; exportCtx.fillRect(0, 0, res.w, res.h);
-        const g1 = exportCtx.createLinearGradient(0, 0, res.w, res.h);
-        g1.addColorStop(0, 'rgba(0,230,255,0.25)'); g1.addColorStop(0.5, 'transparent');
-        exportCtx.fillStyle = g1; exportCtx.fillRect(0, 0, res.w, res.h);
-        const g2 = exportCtx.createLinearGradient(res.w, 0, 0, res.h);
-        g2.addColorStop(0, 'rgba(255,0,200,0.25)'); g2.addColorStop(0.5, 'transparent');
-        exportCtx.fillStyle = g2; exportCtx.fillRect(0, 0, res.w, res.h);
-      } else if (presetFills[bg]) {
-        const [glow, mid, base] = presetFills[bg];
-        exportCtx.fillStyle = base; exportCtx.fillRect(0, 0, res.w, res.h);
-        const g1 = exportCtx.createRadialGradient(res.w/2, res.h*0.4, 0, res.w/2, res.h*0.4, Math.max(res.w,res.h)*0.6);
-        g1.addColorStop(0, mid); g1.addColorStop(1, base);
-        exportCtx.fillStyle = g1; exportCtx.fillRect(0, 0, res.w, res.h);
-        const g2 = exportCtx.createRadialGradient(res.w/2, res.h*0.4, 0, res.w/2, res.h*0.4, Math.max(res.w,res.h)*0.35);
-        g2.addColorStop(0, glow); g2.addColorStop(1, 'transparent');
-        exportCtx.fillStyle = g2; exportCtx.fillRect(0, 0, res.w, res.h);
-      }
+      drawPresetBackground(exportCtx, res);
     }
   }
 
@@ -3986,12 +4025,13 @@
         .map(el => buildDomTextInfo(el, scaleX, scaleY, frameRect));
     }
     cache.customTextStyles = {};
+    cache.customTextColors = {};
     customTexts.forEach(s => {
       const g = customTextGizmos[s.id];
       if (!g) return;
       const cs = getComputedStyle(g.content);
       cache.customTextStyles[s.id] = `${cs.fontWeight} ${parseFloat(cs.fontSize)*scaleY}px ${cs.fontFamily}`;
-      cache.customTextColor = cs.color;
+      cache.customTextColors[s.id] = cs.color;
     });
     return cache;
   }
@@ -4083,7 +4123,7 @@
       exportCtx.rotate(s.rotate * Math.PI / 180);
       exportCtx.scale(s.scaleX, s.scaleY);
       exportCtx.font = font;
-      exportCtx.fillStyle = cache.customTextColor;
+      exportCtx.fillStyle = cache.customTextColors[s.id] || '#f5ece0';
       exportCtx.textAlign = 'center';
       exportCtx.textBaseline = 'middle';
       exportCtx.fillText(s.content, 0, 0);
@@ -4152,6 +4192,7 @@
       exportDest = audioCtx.createMediaStreamDestination();
       analyser.connect(exportDest);
     }
+    try { analyser.disconnect(audioCtx.destination); } catch (e) {}
 
     const captureFps = (resolutionSelectEl.value === '4k') ? 20 : (resolutionSelectEl.value === '1440p') ? 25 : 30;
     const videoStream = exportCanvas.captureStream(captureFps);
@@ -4186,6 +4227,7 @@
     mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
     mediaRecorder.onstop = () => {
       exportRunning = false;
+      try { analyser.connect(audioCtx.destination); } catch (e) {}
       const outputType = isMp4 ? 'video/mp4' : 'video/webm';
       const ext = isMp4 ? 'mp4' : 'webm';
       const blob = new Blob(recordedChunks, { type: outputType });
