@@ -4569,11 +4569,14 @@
     else if (variant === 'wavespike') {
       const bars = 100;
       const barW = w / bars;
-      const musicStart = Math.floor(bufferLength * 0.08);
-      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
+      const half = bars / 2;
+      const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
+      const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
       for (let i = 0; i < bars; i++) {
+        const raw = i < half ? beatVals[i] : musicVals[i - half];
         const envelope = Math.exp(-i / (bars * 0.16));
-        const v = Math.max(0.025, vals[i] * envelope);
+        const v = Math.max(0.025, raw * envelope);
         const barH = v * h * 0.92 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(80,230,120,${0.55 + v * 0.45})`;
@@ -4584,12 +4587,15 @@
     else if (variant === 'wavecenter') {
       const bars = 100;
       const barW = w / bars;
-      const musicStart = Math.floor(bufferLength * 0.08);
-      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
+      const half = bars / 2;
+      const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
+      const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
       for (let i = 0; i < bars; i++) {
+        const raw = i < half ? beatVals[i] : musicVals[i - half];
         const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
         const envelope = Math.exp(-distFromCenter * 3.2);
-        const v = Math.max(0.025, vals[i] * envelope);
+        const v = Math.max(0.025, raw * envelope);
         const barH = v * h * 0.92 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(230,240,255,${0.55 + v * 0.45})`;
@@ -4651,10 +4657,13 @@
     else if (variant === 'wavepodcast') {
       const bars = 120;
       const barW = w / bars;
-      const musicStart = Math.floor(bufferLength * 0.08);
-      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.2, false);
+      const half = bars / 2;
+      const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.55;
+      const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.4, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2, false);
       for (let i = 0; i < bars; i++) {
-        const v = Math.max(0.03, vals[i]);
+        const raw = i < half ? beatVals[i] : musicVals[i - half];
+        const v = Math.max(0.03, raw);
         const barH = v * h * 0.85 * barLenMult;
         const x = i * barW + barW * 0.25;
         ctx.fillStyle = `rgba(255,255,255,${0.5 + v * 0.5})`;
@@ -4665,10 +4674,13 @@
     else if (variant === 'wavemirror') {
       const bars = 100;
       const barW = w / bars;
-      const musicStart = Math.floor(bufferLength * 0.08);
-      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
+      const half = bars / 2;
+      const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
+      const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
       for (let i = 0; i < bars; i++) {
-        const v = Math.max(0.02, vals[i]);
+        const raw = i < half ? beatVals[i] : musicVals[i - half];
+        const v = Math.max(0.02, raw);
         const barH = v * h * 0.42 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(${cyan},${0.5 + v * 0.5})`;
@@ -4752,11 +4764,13 @@
 
     else if (variant === 'dotsminimal') {
       const dots = 60;
-      const musicStart = Math.floor(bufferLength * 0.08);
-      const vals = smoothedBandValues(freqData, bufferLength, dots, musicStart, 0.5, 2.2, false);
+      const half = dots / 2;
+      const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.55;
+      const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.4, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2, false);
       const spacing = w / dots;
       for (let i = 0; i < dots; i++) {
-        const v = vals[i];
+        const v = i < half ? beatVals[i] : musicVals[i - half];
         const x = i * spacing + spacing / 2;
         ctx.beginPath();
         ctx.arc(x, cy, 1.5 + v * 7 * barLenMult, 0, Math.PI * 2);
@@ -4768,10 +4782,13 @@
     else if (variant === 'barsminimal') {
       const bars = 70;
       const barW = w / bars;
-      const musicStart = Math.floor(bufferLength * 0.08);
-      const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
+      const half = bars / 2;
+      const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
+      const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
       for (let i = 0; i < bars; i++) {
-        const v = Math.max(0.02, vals[i]);
+        const raw = i < half ? beatVals[i] : musicVals[i - half];
+        const v = Math.max(0.02, raw);
         const barH = v * h * 0.55 * barLenMult;
         const x = i * barW + barW * 0.3;
         ctx.fillStyle = `rgba(255,255,255,${0.45 + v * 0.55})`;
