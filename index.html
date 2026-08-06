@@ -1030,7 +1030,7 @@
   <div class="section section-viz">
     <div class="section-label" data-i18n="sec_viz">Визуализация</div>
     <div class="variants" id="variantList">
-      <div class="vbtn active" data-v="ringspectrum"><b>Кольцо-спектр</b>ровно по всему кругу</div>
+      <div class="vbtn" data-v="ringspectrum"><b>Кольцо-спектр</b>ровно по всему кругу</div>
       <div class="vbtn" data-v="ringburst"><b>Кольцо-всплеск</b>скопление на одной стороне</div>
       <div class="vbtn" data-v="wavespike"><b>Волна-всплеск</b>пик слева, хвост из точек</div>
       <div class="vbtn" data-v="wavecenter"><b>Волна-центр</b>пик в центре, точки по краям</div>
@@ -3010,8 +3010,8 @@
   thumbLoop();
 
   // ---- Variant selection (multi-select up to 4 layers) ----
-  let variant = 'ringspectrum';
-  let selectedVariants = ['ringspectrum'];
+  let variant = null;
+  let selectedVariants = [];
   const MAX_LAYERS = 4;
   const layerSettings = {}; // per-variant: { hue, scale, opacity, offX, offY, rotate }
   function ensureLayerSettings(v){
@@ -4529,7 +4529,7 @@
       const vals = smoothedBandValues(freqData, bufferLength, segs, skipBins, 0.55, 2.4, true);
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
-        const barLen = Math.min(w, h) * 0.06 + v * Math.min(w, h) * 0.15;
+        const barLen = Math.min(w, h) * 0.06 + v * Math.min(w, h) * 0.15 * barLenMult;
         const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
         const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
         const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
@@ -4553,7 +4553,7 @@
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.8, 2.6, true);
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
-        const barLen = 3 + v * Math.min(w, h) * 0.24;
+        const barLen = 3 + v * Math.min(w, h) * 0.24 * barLenMult;
         const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
         const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
         const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
@@ -4572,7 +4572,7 @@
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
-      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 1.3, false);
       for (let i = 0; i < bars; i++) {
         const raw = i < half ? beatVals[i] : musicVals[i - half];
         const envelope = Math.exp(-i / (bars * 0.16));
@@ -4590,7 +4590,7 @@
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
-      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 1.3, false);
       for (let i = 0; i < bars; i++) {
         const raw = i < half ? beatVals[i] : musicVals[i - half];
         const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
@@ -4613,7 +4613,7 @@
         const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
         const x = cx + Math.cos(angle) * baseR, y = cy + Math.sin(angle) * baseR;
         ctx.beginPath();
-        ctx.arc(x, y, 1.5 + v * 6, 0, Math.PI * 2);
+        ctx.arc(x, y, 1.5 + v * 6 * barLenMult, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255,255,255,${0.4 + v * 0.6})`;
         ctx.fill();
       }
@@ -4629,10 +4629,10 @@
       for (let i = 0; i < segs; i++) {
         const a0 = (i / segs) * Math.PI * 2, a1 = ((i + 0.7) / segs) * Math.PI * 2;
         const vb = innerVals[i];
-        ctx.beginPath(); ctx.arc(cx, cy, innerR + vb * Math.min(w, h) * 0.08, a0, a1);
+        ctx.beginPath(); ctx.arc(cx, cy, innerR + vb * Math.min(w, h) * 0.08 * barLenMult, a0, a1);
         ctx.strokeStyle = `rgba(${magenta},${0.5 + vb * 0.5})`; ctx.lineWidth = 1.5; ctx.stroke();
         const vv = outerVals[i];
-        ctx.beginPath(); ctx.arc(cx, cy, outerR + vv * Math.min(w, h) * 0.1, a0, a1);
+        ctx.beginPath(); ctx.arc(cx, cy, outerR + vv * Math.min(w, h) * 0.1 * barLenMult, a0, a1);
         ctx.strokeStyle = `rgba(${cyan},${0.5 + vv * 0.5})`; ctx.lineWidth = 1.5; ctx.stroke();
       }
     }
@@ -4645,7 +4645,7 @@
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
         const angle = Math.PI + (i / segs) * Math.PI;
-        const barLen = 4 + v * Math.min(w, h) * 0.2;
+        const barLen = 4 + v * Math.min(w, h) * 0.2 * barLenMult;
         const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
         const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
@@ -4660,7 +4660,7 @@
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.55;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.4, false);
-      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 1.2, false);
       for (let i = 0; i < bars; i++) {
         const raw = i < half ? beatVals[i] : musicVals[i - half];
         const v = Math.max(0.03, raw);
@@ -4677,7 +4677,7 @@
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
-      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 1.3, false);
       for (let i = 0; i < bars; i++) {
         const raw = i < half ? beatVals[i] : musicVals[i - half];
         const v = Math.max(0.02, raw);
@@ -4696,7 +4696,7 @@
       let sum = 0;
       for (let k = musicStart; k < musicCoreEnd; k++) sum += freqData[k];
       const coreV = Math.min(1, (sum / (musicCoreEnd - musicStart) / 255) * 2.4 * coreGlobalMult);
-      const r = Math.min(w, h) * 0.1 + coreV * Math.min(w, h) * 0.16;
+      const r = Math.min(w, h) * 0.1 + coreV * Math.min(w, h) * 0.16 * barLenMult;
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255,255,255,${0.5 + coreV * 0.5})`;
       ctx.shadowColor = 'rgba(255,255,255,0.6)'; ctx.shadowBlur = 20 * coreV + 4;
@@ -4709,7 +4709,7 @@
         const v = vals[i];
         const angle = (i / segs) * Math.PI * 2;
         const x = cx + Math.cos(angle) * dotR, y = cy + Math.sin(angle) * dotR;
-        ctx.beginPath(); ctx.arc(x, y, 1 + v * 4, 0, Math.PI * 2);
+        ctx.beginPath(); ctx.arc(x, y, 1 + v * 4 * barLenMult, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255,255,255,${0.35 + v * 0.65})`; ctx.fill();
       }
     }
@@ -4724,7 +4724,7 @@
         const t = i / segs;
         const angle = t * Math.PI * 2 * 2.5;
         const r = 8 + t * maxR;
-        const barLen = 3 + v * 14;
+        const barLen = 3 + v * 14 * barLenMult;
         const x1 = cx + Math.cos(angle) * r, y1 = cy + Math.sin(angle) * r;
         const x2 = cx + Math.cos(angle) * (r + barLen), y2 = cy + Math.sin(angle) * (r + barLen);
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
@@ -4743,22 +4743,22 @@
       for (let i = 0; i < perSide; i++) {
         const v = vals[idx++]; const x = (w / perSide) * (i + 0.5);
         ctx.strokeStyle = `rgba(255,255,255,${0.4 + v * 0.6})`; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(x, inset); ctx.lineTo(x, inset + 4 + v * 20); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, inset); ctx.lineTo(x, inset + 4 + v * 20 * barLenMult); ctx.stroke();
       }
       for (let i = 0; i < perSide; i++) {
         const v = vals[idx++]; const y = (h / perSide) * (i + 0.5);
         ctx.strokeStyle = `rgba(255,255,255,${0.4 + v * 0.6})`; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(w - inset, y); ctx.lineTo(w - inset - 4 - v * 20, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(w - inset, y); ctx.lineTo(w - inset - 4 - v * 20 * barLenMult, y); ctx.stroke();
       }
       for (let i = 0; i < perSide; i++) {
         const v = vals[idx++]; const x = w - (w / perSide) * (i + 0.5);
         ctx.strokeStyle = `rgba(255,255,255,${0.4 + v * 0.6})`; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(x, h - inset); ctx.lineTo(x, h - inset - 4 - v * 20); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, h - inset); ctx.lineTo(x, h - inset - 4 - v * 20 * barLenMult); ctx.stroke();
       }
       for (let i = 0; i < perSide; i++) {
         const v = vals[idx++]; const y = h - (h / perSide) * (i + 0.5);
         ctx.strokeStyle = `rgba(255,255,255,${0.4 + v * 0.6})`; ctx.lineWidth = 1.4;
-        ctx.beginPath(); ctx.moveTo(inset, y); ctx.lineTo(inset + 4 + v * 20, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(inset, y); ctx.lineTo(inset + 4 + v * 20 * barLenMult, y); ctx.stroke();
       }
     }
 
@@ -4767,7 +4767,7 @@
       const half = dots / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.55;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.4, false);
-      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 1.2, false);
       const spacing = w / dots;
       for (let i = 0; i < dots; i++) {
         const v = i < half ? beatVals[i] : musicVals[i - half];
@@ -4785,7 +4785,7 @@
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.6, false);
-      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 2.2, false);
+      const musicVals = smoothedBandValues(freqData, bufferLength, half, Math.floor(bufferLength * beatEndFrac), musicEndFrac, 1.3, false);
       for (let i = 0; i < bars; i++) {
         const raw = i < half ? beatVals[i] : musicVals[i - half];
         const v = Math.max(0.02, raw);
