@@ -1052,6 +1052,7 @@
     <div class="section-label" data-i18n="sec_sens">Чувствительность</div>
     <div class="row"><label data-i18n="lbl_bass">Бас</label><input type="range" id="bassSens" min="0.5" max="6" step="0.05" value="2.2"></div>
     <div class="row"><label data-i18n="lbl_overall">Общая</label><input type="range" id="overallSens" min="0.5" max="6" step="0.05" value="1.6"></div>
+    <div class="row"><label>Длина столбиков</label><input type="range" id="barLenSens" min="0.3" max="2.5" step="0.05" value="1"></div>
   </div>
 
   <div class="section section-pos">
@@ -1600,6 +1601,9 @@
   const panelToggle = document.getElementById('panelToggle');
   const bassSensEl = document.getElementById('bassSens');
   const overallSensEl = document.getElementById('overallSens');
+  const barLenSensEl = document.getElementById('barLenSens');
+  let barLenMult = 1;
+  barLenSensEl.addEventListener('input', () => { barLenMult = parseFloat(barLenSensEl.value) || 1; });
   const fontOptionsHTML = document.getElementById('fontOptionsTemplate').innerHTML;
   const newCustomTextInput = document.getElementById('newCustomTextInput');
   const newCustomTextFont = document.getElementById('newCustomTextFont');
@@ -4574,7 +4578,7 @@
       for (let i = 0; i < bars; i++) {
         const envelope = Math.exp(-i / (bars * 0.16));
         const v = Math.max(0.025, vals[i] * envelope);
-        const barH = v * h * 0.92;
+        const barH = v * h * 0.92 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(80,230,120,${0.55 + v * 0.45})`;
         ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.4), barH);
@@ -4590,7 +4594,7 @@
         const distFromCenter = Math.abs(i - bars / 2) / (bars / 2);
         const envelope = Math.exp(-distFromCenter * 3.2);
         const v = Math.max(0.025, vals[i] * envelope);
-        const barH = v * h * 0.92;
+        const barH = v * h * 0.92 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(230,240,255,${0.55 + v * 0.45})`;
         ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.4), barH);
@@ -4655,7 +4659,7 @@
       const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.2, false);
       for (let i = 0; i < bars; i++) {
         const v = Math.max(0.03, vals[i]);
-        const barH = v * h * 0.85;
+        const barH = v * h * 0.85 * barLenMult;
         const x = i * barW + barW * 0.25;
         ctx.fillStyle = `rgba(255,255,255,${0.5 + v * 0.5})`;
         ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.35), barH);
@@ -4669,7 +4673,7 @@
       const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
       for (let i = 0; i < bars; i++) {
         const v = Math.max(0.02, vals[i]);
-        const barH = v * h * 0.42;
+        const barH = v * h * 0.42 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(${cyan},${0.5 + v * 0.5})`;
         ctx.fillRect(x, cy - barH, Math.max(1, barW * 0.4), barH);
@@ -4758,7 +4762,7 @@
         const v = vals[i];
         const x = i * spacing + spacing / 2;
         ctx.beginPath();
-        ctx.arc(x, cy, 1.5 + v * 7, 0, Math.PI * 2);
+        ctx.arc(x, cy, 1.5 + v * 7 * barLenMult, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(255,255,255,${0.35 + v * 0.65})`;
         ctx.fill();
       }
@@ -4771,7 +4775,7 @@
       const vals = smoothedBandValues(freqData, bufferLength, bars, musicStart, 0.5, 2.4, false);
       for (let i = 0; i < bars; i++) {
         const v = Math.max(0.02, vals[i]);
-        const barH = v * h * 0.55;
+        const barH = v * h * 0.55 * barLenMult;
         const x = i * barW + barW * 0.3;
         ctx.fillStyle = `rgba(255,255,255,${0.45 + v * 0.55})`;
         ctx.fillRect(x, h - barH, Math.max(1, barW * 0.4), barH);
