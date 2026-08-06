@@ -1053,6 +1053,7 @@
     <div class="row"><label data-i18n="lbl_bass">Бас</label><input type="range" id="bassSens" min="0.5" max="6" step="0.05" value="2.2"></div>
     <div class="row"><label data-i18n="lbl_overall">Общая</label><input type="range" id="overallSens" min="0.5" max="6" step="0.05" value="1.6"></div>
     <div class="row"><label>Длина столбиков</label><input type="range" id="barLenSens" min="0.3" max="2.5" step="0.05" value="1"></div>
+    <div class="row"><label>Ширина столбиков</label><input type="range" id="barWidSens" min="0.3" max="2.5" step="0.05" value="1"></div>
   </div>
 
   <div class="section section-pos">
@@ -1604,6 +1605,9 @@
   const barLenSensEl = document.getElementById('barLenSens');
   let barLenMult = 1;
   barLenSensEl.addEventListener('input', () => { barLenMult = parseFloat(barLenSensEl.value) || 1; });
+  const barWidSensEl = document.getElementById('barWidSens');
+  let barWidMult = 1;
+  barWidSensEl.addEventListener('input', () => { barWidMult = parseFloat(barWidSensEl.value) || 1; });
   const fontOptionsHTML = document.getElementById('fontOptionsTemplate').innerHTML;
   const newCustomTextInput = document.getElementById('newCustomTextInput');
   const newCustomTextFont = document.getElementById('newCustomTextFont');
@@ -2626,6 +2630,7 @@
   // blending each segment with its neighbors so one loud frequency bin doesn't create an isolated spike.
   // wrap=true treats the segments as a closed ring (first/last are neighbors); wrap=false clamps at the ends.
   function smoothedBandValues(freqData, bufferLength, segments, startBin, endFrac, sensitivity, wrap){
+    const globalMult = (parseFloat(bassSensEl.value) / 2.2) * (parseFloat(overallSensEl.value) / 1.6);
     const rangeEnd = Math.floor(bufferLength * endFrac);
     const usable = Math.max(1, rangeEnd - startBin);
     const raws = [];
@@ -2634,7 +2639,7 @@
       const idxEnd = Math.max(idxStart + 1, startBin + Math.floor(((i + 1) / segments) * usable));
       let sum = 0;
       for (let k = idxStart; k < idxEnd && k < bufferLength; k++) sum += freqData[k];
-      raws.push(Math.min(1, (sum / (idxEnd - idxStart) / 255) * sensitivity));
+      raws.push(Math.min(1, (sum / (idxEnd - idxStart) / 255) * sensitivity * globalMult));
     }
     const smoothed = [];
     for (let i = 0; i < segments; i++) {
@@ -4520,27 +4525,18 @@
     else if (variant === 'ringspectrum') {
       const segs = 80;
       const baseR = Math.min(w, h) * 0.22;
-      const useRange = Math.floor(bufferLength * 0.55);
       const skipBins = Math.floor(bufferLength * 0.08);
-      const raws = [];
+      const vals = smoothedBandValues(freqData, bufferLength, segs, skipBins, 0.55, 2.4, true);
       for (let i = 0; i < segs; i++) {
-        const idxStart = skipBins + Math.floor((i / segs) * (useRange - skipBins));
-        const idxEnd = Math.max(idxStart + 1, skipBins + Math.floor(((i + 1) / segs) * (useRange - skipBins)));
-        let sum = 0;
-        for (let k = idxStart; k < idxEnd; k++) sum += freqData[k];
-        raws.push(Math.min(1, (sum / (idxEnd - idxStart) / 255) * 2.4));
-      }
-      for (let i = 0; i < segs; i++) {
-        const prev = raws[(i - 1 + segs) % segs], next = raws[(i + 1) % segs];
-        const v = raws[i] * 0.5 + prev * 0.25 + next * 0.25;
-        const barLen = Math.min(w, h) * 0.08 + v * Math.min(w, h) * 0.16;
+        const v = vals[i];
+        const barLen = Math.min(w, h) * 0.06 + v * Math.min(w, h) * 0.15;
         const angle = (i / segs) * Math.PI * 2 - Math.PI / 2;
         const x1 = cx + Math.cos(angle) * baseR, y1 = cy + Math.sin(angle) * baseR;
         const x2 = cx + Math.cos(angle) * (baseR + barLen), y2 = cy + Math.sin(angle) * (baseR + barLen);
         ctx.beginPath();
         ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
         ctx.strokeStyle = `rgba(255,255,255,${0.45 + v * 0.55})`;
-        ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+        ctx.lineWidth = 1; ctx.lineCap = 'round';
         ctx.stroke();
       }
     }
@@ -4581,7 +4577,7 @@
         const barH = v * h * 0.92 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(80,230,120,${0.55 + v * 0.45})`;
-        ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.4), barH);
+        ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.4 * barWidMult), barH);
       }
     }
 
@@ -4597,7 +4593,7 @@
         const barH = v * h * 0.92 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(230,240,255,${0.55 + v * 0.45})`;
-        ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.4), barH);
+        ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.4 * barWidMult), barH);
       }
     }
 
@@ -4662,7 +4658,7 @@
         const barH = v * h * 0.85 * barLenMult;
         const x = i * barW + barW * 0.25;
         ctx.fillStyle = `rgba(255,255,255,${0.5 + v * 0.5})`;
-        ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.35), barH);
+        ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW * 0.35 * barWidMult), barH);
       }
     }
 
@@ -4676,17 +4672,18 @@
         const barH = v * h * 0.42 * barLenMult;
         const x = i * barW + barW * 0.2;
         ctx.fillStyle = `rgba(${cyan},${0.5 + v * 0.5})`;
-        ctx.fillRect(x, cy - barH, Math.max(1, barW * 0.4), barH);
-        ctx.fillRect(x, cy, Math.max(1, barW * 0.4), barH);
+        ctx.fillRect(x, cy - barH, Math.max(1, barW * 0.4 * barWidMult), barH);
+        ctx.fillRect(x, cy, Math.max(1, barW * 0.4 * barWidMult), barH);
       }
     }
 
     else if (variant === 'pulsecore') {
       const musicStart = Math.floor(bufferLength * 0.08);
       const musicCoreEnd = Math.floor(bufferLength * 0.2);
+      const coreGlobalMult = (parseFloat(bassSensEl.value) / 2.2) * (parseFloat(overallSensEl.value) / 1.6);
       let sum = 0;
       for (let k = musicStart; k < musicCoreEnd; k++) sum += freqData[k];
-      const coreV = Math.min(1, (sum / (musicCoreEnd - musicStart) / 255) * 2.4);
+      const coreV = Math.min(1, (sum / (musicCoreEnd - musicStart) / 255) * 2.4 * coreGlobalMult);
       const r = Math.min(w, h) * 0.1 + coreV * Math.min(w, h) * 0.16;
       ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
       ctx.fillStyle = `rgba(255,255,255,${0.5 + coreV * 0.5})`;
@@ -4778,7 +4775,7 @@
         const barH = v * h * 0.55 * barLenMult;
         const x = i * barW + barW * 0.3;
         ctx.fillStyle = `rgba(255,255,255,${0.45 + v * 0.55})`;
-        ctx.fillRect(x, h - barH, Math.max(1, barW * 0.4), barH);
+        ctx.fillRect(x, h - barH, Math.max(1, barW * 0.4 * barWidMult), barH);
       }
     }
 
