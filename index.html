@@ -105,7 +105,7 @@
     z-index:50;
   }
   #textWrap.shown{ display:block; }
-  #vizGizmoContainer{ position:absolute; inset:0; pointer-events:none; z-index:49; }
+  #vizGizmoContainer{ position:fixed; pointer-events:none; z-index:49; }
   .viz-gizmo-wrap{
     position:absolute; inset:0; pointer-events:none;
     transform-origin: 50% 50%;
@@ -120,8 +120,8 @@
     pointer-events:auto; z-index:2; padding:0;
   }
   .viz-gizmo-remove:hover{ background:#ff4d4d; }
-  #customTextGizmoContainer{ position:absolute; inset:0; pointer-events:none; z-index:51; }
-  #bgGizmoContainer{ position:absolute; inset:0; pointer-events:none; z-index:48; }
+  #customTextGizmoContainer{ position:fixed; pointer-events:none; z-index:51; }
+  #bgGizmoContainer{ position:fixed; pointer-events:none; z-index:48; }
   .bg-gizmo-wrap{ position:absolute; inset:0; pointer-events:none; }
   .bg-gizmo-box{
     position:absolute; left:8%; top:8%; width:84%; height:84%;
@@ -194,6 +194,8 @@
   }
   .resize-handle{ bottom:-12px; right:-12px; cursor:nwse-resize; }
   .rotate-handle{ top:-36px; left:50%; transform:translateX(-50%); cursor:grab; }
+  .left-handle{ top:50%; left:-12px; transform:translateY(-50%); cursor:ew-resize; }
+  .right-handle{ top:50%; right:-12px; transform:translateY(-50%); cursor:ew-resize; }
 
   #timerClassic{
     bottom:12px; left:14px;
@@ -284,15 +286,17 @@
 
   /* control panel (drawer) */
   #panelToggle{
-    position:absolute; top:50%; left:-40px; transform:translateY(-50%);
-    z-index:41;
+    position:fixed; top:50%; right:380px; transform:translateY(-50%);
+    z-index:52;
     background:#e8112b; border:none;
     color:#fff; font-family:var(--mono); font-size:11px;
     letter-spacing:2px; text-transform:uppercase;
     padding:16px 10px; border-radius:4px 0 0 4px; cursor:pointer;
     writing-mode:vertical-rl;
     box-shadow: -4px 0 20px rgba(232,17,43,0.3);
+    transition: right 0.35s cubic-bezier(.2,.9,.25,1);
   }
+  #panelToggle.panel-closed{ right:0; }
   #panelToggle:hover{ background:#6e0f1a; }
 
   #panel{
@@ -809,11 +813,12 @@
       </div>
     </div>
 
-    <div id="bgGizmoContainer"></div>
-    <div id="vizGizmoContainer"></div>
-    <div id="customTextGizmoContainer"></div>
   </div>
 </div>
+
+<div id="bgGizmoContainer"></div>
+<div id="vizGizmoContainer"></div>
+<div id="customTextGizmoContainer"></div>
 
 <div id="topbar">
   <div id="brand"><span class="dot"></span><span class="brand-name">VISUAL TJ</span></div>
@@ -823,8 +828,9 @@
   <div class="topbar-spacer"></div>
 </div>
 
+<button id="panelToggle" data-i18n="panel_toggle">Панель ▾</button>
+
 <div id="panel">
-  <button id="panelToggle" data-i18n="panel_toggle">Панель ▾</button>
   <div id="panelScroll">
   <div class="section section-filter">
     <div class="section-label" data-i18n="sec_filter">Фильтр</div>
@@ -1130,27 +1136,29 @@
   const colorLayerCtx = colorLayerCanvas.getContext('2d');
   const frame = document.getElementById('playerFrame');
 
-  const GIZMO_SELECTOR = '.viz-gizmo-wrap, .ctext-gizmo-wrap, #timerWrap, #textWrap, .bg-gizmo-wrap';
-  function clearAllGizmoActive(){
-    document.querySelectorAll('.gizmo-active').forEach(el => el.classList.remove('gizmo-active'));
+  const vizGizmoContainerEl = document.getElementById('vizGizmoContainer');
+  const customTextGizmoContainerEl = document.getElementById('customTextGizmoContainer');
+  const bgGizmoContainerEl = document.getElementById('bgGizmoContainer');
+  function syncGizmoContainers(){
+    const r = frame.getBoundingClientRect();
+    [vizGizmoContainerEl, customTextGizmoContainerEl, bgGizmoContainerEl].forEach(el => {
+      el.style.left = r.left + 'px';
+      el.style.top = r.top + 'px';
+      el.style.width = r.width + 'px';
+      el.style.height = r.height + 'px';
+    });
   }
-  document.addEventListener('mouseenter', (e) => {
-    const wrap = e.target.closest && e.target.closest(GIZMO_SELECTOR);
-    if (wrap) wrap.classList.add('gizmo-active');
-  }, true);
-  document.addEventListener('mouseleave', (e) => {
-    const wrap = e.target.closest && e.target.closest(GIZMO_SELECTOR);
-    if (wrap) wrap.classList.remove('gizmo-active');
-  }, true);
+  window.addEventListener('resize', syncGizmoContainers);
+  window.addEventListener('scroll', syncGizmoContainers, true);
+  syncGizmoContainers();
+
+  const GIZMO_SELECTOR = '.viz-gizmo-wrap, .ctext-gizmo-wrap, #timerWrap, #textWrap, .bg-gizmo-wrap';
   document.addEventListener('pointerdown', (e) => {
     const wrap = e.target.closest && e.target.closest(GIZMO_SELECTOR);
-    if (wrap) {
-      clearAllGizmoActive();
-      wrap.classList.add('gizmo-active');
-    } else {
-      clearAllGizmoActive();
-    }
-  });
+    document.querySelectorAll('.gizmo-active').forEach(el => {
+      if (el !== wrap) el.classList.remove('gizmo-active');
+    });
+  }, true);
 
   const bgVideo = document.getElementById('bgMedia');
   const bgImg = document.getElementById('bgImg');
@@ -1722,7 +1730,9 @@
 
   panelToggle.addEventListener('click', () => {
     panel.classList.toggle('open');
-    panelToggle.classList.toggle('active', panel.classList.contains('open'));
+    const isOpen = panel.classList.contains('open');
+    panelToggle.classList.toggle('active', isOpen);
+    panelToggle.classList.toggle('panel-closed', !isOpen);
   });
 
   // ---- Bottom timeline: unlimited resizable photo & audio tracks ----
@@ -3060,7 +3070,7 @@
       const angle = idx * (Math.PI / 2);
       const dist = idx === 0 ? 0 : 65;
       layerSettings[v] = {
-        color: null, scaleX: 1, scaleY: 1, opacity: 1, rotate: 0,
+        color: null, scaleX: 1, scaleY: 1, opacity: 1, rotate: 0, barCount: 1,
         offX: Math.round(Math.cos(angle) * dist),
         offY: Math.round(Math.sin(angle) * dist)
       };
@@ -3210,9 +3220,10 @@
     g.wrap.style.transform = `translate(${s.offX}px, ${s.offY}px) rotate(${s.rotate || 0}deg) scale(${s.scaleX}, ${s.scaleY})`;
   }
 
-  function wireVizGizmo(v, wrap, box, resizeHandle, rotateHandle){
+  function wireVizGizmo(v, wrap, box, resizeHandle, rotateHandle, leftHandle, rightHandle){
     let mode = null, startX = 0, startY = 0, origOffX = 0, origOffY = 0;
     let resizeStartDX = 1, resizeStartDY = 1, resizeStartScaleX = 1, resizeStartScaleY = 1;
+    let barCountStartX = 0, barCountStartVal = 1;
     function center(){
       const r = box.getBoundingClientRect();
       return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -3220,6 +3231,7 @@
     function down(kind){
       return (e) => {
         mode = kind;
+        wrap.classList.add('gizmo-active');
         const p = pointerPos(e);
         const s = ensureLayerSettings(v);
         if (kind === 'move') { startX = p.x; startY = p.y; origOffX = s.offX; origOffY = s.offY; }
@@ -3229,6 +3241,9 @@
           resizeStartDY = Math.max(10, Math.abs(p.y - c.y));
           resizeStartScaleX = s.scaleX;
           resizeStartScaleY = s.scaleY;
+        } else if (kind === 'barcount') {
+          barCountStartX = p.x;
+          barCountStartVal = s.barCount || 1;
         }
         e.stopPropagation();
         if (e.cancelable) e.preventDefault();
@@ -3253,8 +3268,17 @@
         const nearest45 = Math.round(rot / 45) * 45;
         if (Math.abs(rot - nearest45) <= 7) rot = nearest45;
         s.rotate = Math.round(rot);
+      } else if (mode === 'barcount-left') {
+        const delta = barCountStartX - p.x;
+        s.barCount = Math.max(0.2, Math.min(3, barCountStartVal + delta / 150));
+      } else if (mode === 'barcount-right') {
+        const delta = p.x - barCountStartX;
+        s.barCount = Math.max(0.2, Math.min(3, barCountStartVal + delta / 150));
       }
       applyLayerGizmoTransform(v);
+    }
+    function up(){
+      if (mode) { mode = null; wrap.classList.remove('gizmo-active'); }
     }
     box.addEventListener('mousedown', down('move'));
     box.addEventListener('touchstart', down('move'), { passive: false });
@@ -3262,10 +3286,18 @@
     resizeHandle.addEventListener('touchstart', down('resize'), { passive: false });
     rotateHandle.addEventListener('mousedown', down('rotate'));
     rotateHandle.addEventListener('touchstart', down('rotate'), { passive: false });
+    if (leftHandle) {
+      leftHandle.addEventListener('mousedown', down('barcount-left'));
+      leftHandle.addEventListener('touchstart', down('barcount-left'), { passive: false });
+    }
+    if (rightHandle) {
+      rightHandle.addEventListener('mousedown', down('barcount-right'));
+      rightHandle.addEventListener('touchstart', down('barcount-right'), { passive: false });
+    }
     window.addEventListener('mousemove', move);
     window.addEventListener('touchmove', (e) => { if (mode) move(e); }, { passive: true });
-    window.addEventListener('mouseup', () => { mode = null; });
-    window.addEventListener('touchend', () => { mode = null; });
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
     box.addEventListener('wheel', (e) => {
       e.preventDefault();
       const s = ensureLayerSettings(v);
@@ -3277,6 +3309,7 @@
   }
 
   function rebuildVizGizmos(){
+    syncGizmoContainers();
     vizGizmoContainer.innerHTML = '';
     for (const k in vizGizmos) delete vizGizmos[k];
     if (!emptyState.classList.contains('hidden')) return;
@@ -3309,6 +3342,16 @@
       resizeHandle.innerHTML = '&#8600;';
       resizeHandle.style.background = color;
 
+      const leftHandle = document.createElement('div');
+      leftHandle.className = 'handle left-handle';
+      leftHandle.innerHTML = '&#8596;';
+      leftHandle.style.background = color;
+
+      const rightHandle = document.createElement('div');
+      rightHandle.className = 'handle right-handle';
+      rightHandle.innerHTML = '&#8596;';
+      rightHandle.style.background = color;
+
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'viz-gizmo-remove';
@@ -3323,15 +3366,17 @@
 
       selectBox.appendChild(rotateHandle);
       selectBox.appendChild(resizeHandle);
+      selectBox.appendChild(leftHandle);
+      selectBox.appendChild(rightHandle);
       selectBox.appendChild(removeBtn);
       wrap.appendChild(box);
       wrap.appendChild(selectBox);
       vizGizmoContainer.appendChild(wrap);
 
       syncSelectBox(selectBox, box);
-      vizGizmos[v] = { wrap, box, selectBox, resizeHandle, rotateHandle, removeBtn };
+      vizGizmos[v] = { wrap, box, selectBox, resizeHandle, rotateHandle, leftHandle, rightHandle, removeBtn };
       applyLayerGizmoTransform(v);
-      wireVizGizmo(v, wrap, box, resizeHandle, rotateHandle);
+      wireVizGizmo(v, wrap, box, resizeHandle, rotateHandle, leftHandle, rightHandle);
     });
   }
   rebuildVizGizmos();
@@ -3343,7 +3388,7 @@
   const bgGizmoContainer = document.getElementById('bgGizmoContainer');
   let bgGizmo = null;
 
-  function wireBgGizmo(box, resizeHandle, rotateHandle){
+  function wireBgGizmo(wrap, box, resizeHandle, rotateHandle){
     let mode = null, startX = 0, startY = 0, origOffX = 0, origOffY = 0;
     let resizeStartDX = 1, resizeStartDY = 1, resizeStartScaleX = 1, resizeStartScaleY = 1;
     function center(){
@@ -3353,6 +3398,7 @@
     function down(kind){
       return (e) => {
         mode = kind;
+        wrap.classList.add('gizmo-active');
         const p = pointerPos(e);
         if (kind === 'move') { startX = p.x; startY = p.y; origOffX = bgAdjust.offX; origOffY = bgAdjust.offY; }
         else if (kind === 'resize') {
@@ -3386,6 +3432,9 @@
         bgAdjust.rotate = Math.round(rot);
       }
     }
+    function up(){
+      if (mode) { mode = null; wrap.classList.remove('gizmo-active'); }
+    }
     box.addEventListener('mousedown', down('move'));
     box.addEventListener('touchstart', down('move'), { passive: false });
     resizeHandle.addEventListener('mousedown', down('resize'));
@@ -3394,8 +3443,8 @@
     rotateHandle.addEventListener('touchstart', down('rotate'), { passive: false });
     window.addEventListener('mousemove', move);
     window.addEventListener('touchmove', (e) => { if (mode) move(e); }, { passive: true });
-    window.addEventListener('mouseup', () => { mode = null; });
-    window.addEventListener('touchend', () => { mode = null; });
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
     box.addEventListener('wheel', (e) => {
       e.preventDefault();
       const factor = 1 - e.deltaY * 0.001;
@@ -3405,6 +3454,7 @@
   }
 
   function rebuildBgGizmo(){
+    syncGizmoContainers();
     bgGizmoContainer.innerHTML = '';
     bgGizmo = null;
     if (!photoTracks.length || !emptyState.classList.contains('hidden')) return;
@@ -3437,7 +3487,7 @@
 
     syncSelectBox(selectBox, box);
     bgGizmo = { wrap, box, selectBox, resizeHandle, rotateHandle };
-    wireBgGizmo(box, resizeHandle, rotateHandle);
+    wireBgGizmo(wrap, box, resizeHandle, rotateHandle);
   }
 
   let customTexts = [];
@@ -3452,7 +3502,7 @@
     g.wrap.style.transform = `translate(${s.offX}px, ${s.offY}px) rotate(${s.rotate}deg) scale(${s.scaleX}, ${s.scaleY})`;
   }
 
-  function wireCustomTextGizmo(id, box, resizeHandle, rotateHandle){
+  function wireCustomTextGizmo(id, wrap, box, resizeHandle, rotateHandle){
     let mode = null, startX = 0, startY = 0, origOffX = 0, origOffY = 0;
     let resizeStartDX = 1, resizeStartDY = 1, resizeStartScaleX = 1, resizeStartScaleY = 1;
     function center(){
@@ -3462,6 +3512,7 @@
     function down(kind){
       return (e) => {
         mode = kind;
+        wrap.classList.add('gizmo-active');
         const p = pointerPos(e);
         const s = customTexts.find(x => x.id === id);
         if (!s) return;
@@ -3500,6 +3551,9 @@
       }
       applyCustomTextTransform(id);
     }
+    function up(){
+      if (mode) { mode = null; wrap.classList.remove('gizmo-active'); }
+    }
     box.addEventListener('mousedown', down('move'));
     box.addEventListener('touchstart', down('move'), { passive: false });
     resizeHandle.addEventListener('mousedown', down('resize'));
@@ -3508,8 +3562,8 @@
     rotateHandle.addEventListener('touchstart', down('rotate'), { passive: false });
     window.addEventListener('mousemove', move);
     window.addEventListener('touchmove', (e) => { if (mode) move(e); }, { passive: true });
-    window.addEventListener('mouseup', () => { mode = null; });
-    window.addEventListener('touchend', () => { mode = null; });
+    window.addEventListener('mouseup', up);
+    window.addEventListener('touchend', up);
     box.addEventListener('wheel', (e) => {
       e.preventDefault();
       const s = customTexts.find(x => x.id === id);
@@ -3522,6 +3576,7 @@
   }
 
   function rebuildCustomTextGizmos(){
+    syncGizmoContainers();
     customTextGizmoContainer.innerHTML = '';
     for (const k in customTextGizmos) delete customTextGizmos[k];
     customTexts.forEach((s, idx) => {
@@ -3577,7 +3632,7 @@
       syncSelectBox(selectBox, box);
       customTextGizmos[s.id] = { wrap, box, selectBox, content, resizeHandle, rotateHandle };
       applyCustomTextTransform(s.id);
-      wireCustomTextGizmo(s.id, box, resizeHandle, rotateHandle);
+      wireCustomTextGizmo(s.id, wrap, box, resizeHandle, rotateHandle);
     });
   }
 
@@ -4383,6 +4438,7 @@
       ctx.scale(ls.scaleX, ls.scaleY);
       ctx.translate(-cx, -cy);
       let variant = layerVariant;
+      const barCountMult = ls.barCount || 1;
 
     if (variant === 'bars') {
       const bars = 64;
@@ -4594,7 +4650,7 @@
     }
 
     else if (variant === 'ringspectrum') {
-      const segs = 80;
+      const segs = Math.max(20, Math.round(80 * barCountMult));
       const baseR = Math.min(w, h) * 0.22;
       const skipBins = Math.floor(bufferLength * 0.08);
       const vals = smoothedBandValues(freqData, bufferLength, segs, skipBins, 0.55, 2.4, true);
@@ -4613,7 +4669,7 @@
     }
 
     else if (variant === 'ringburst') {
-      const segs = 72;
+      const segs = Math.max(20, Math.round(72 * barCountMult));
       const baseR = Math.min(w, h) * 0.28;
       ctx.beginPath();
       ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
@@ -4638,7 +4694,7 @@
     }
 
     else if (variant === 'wavespike') {
-      const bars = 100;
+      const bars = Math.max(20, Math.round(100 * barCountMult));
       const barW = w / bars;
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
@@ -4656,7 +4712,7 @@
     }
 
     else if (variant === 'wavecenter') {
-      const bars = 100;
+      const bars = Math.max(20, Math.round(100 * barCountMult));
       const barW = w / bars;
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
@@ -4675,7 +4731,7 @@
     }
 
     else if (variant === 'ringdots') {
-      const segs = 64;
+      const segs = Math.max(16, Math.round(64 * barCountMult));
       const baseR = Math.min(w, h) * 0.28;
       const musicStart = Math.floor(bufferLength * 0.08);
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.5, 2.2, true);
@@ -4691,7 +4747,7 @@
     }
 
     else if (variant === 'ringdouble') {
-      const segs = 48;
+      const segs = Math.max(12, Math.round(48 * barCountMult));
       const midStart = Math.floor(bufferLength * 0.08);
       const midMid = Math.floor(bufferLength * 0.22);
       const innerR = Math.min(w, h) * 0.16, outerR = Math.min(w, h) * 0.32;
@@ -4709,7 +4765,7 @@
     }
 
     else if (variant === 'ringhalf') {
-      const segs = 40;
+      const segs = Math.max(10, Math.round(40 * barCountMult));
       const baseR = Math.min(w, h) * 0.32;
       const musicStart = Math.floor(bufferLength * 0.08);
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.55, 2.4, false);
@@ -4726,7 +4782,7 @@
     }
 
     else if (variant === 'wavepodcast') {
-      const bars = 120;
+      const bars = Math.max(24, Math.round(120 * barCountMult));
       const barW = w / bars;
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.55;
@@ -4743,7 +4799,7 @@
     }
 
     else if (variant === 'wavemirror') {
-      const bars = 100;
+      const bars = Math.max(20, Math.round(100 * barCountMult));
       const barW = w / bars;
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
@@ -4773,7 +4829,7 @@
       ctx.shadowColor = 'rgba(255,255,255,0.6)'; ctx.shadowBlur = 20 * coreV + 4;
       ctx.fill(); ctx.shadowBlur = 0;
 
-      const segs = 48;
+      const segs = Math.max(12, Math.round(48 * barCountMult));
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicCoreEnd, 0.5, 2, true);
       const dotR = Math.min(w, h) * 0.34;
       for (let i = 0; i < segs; i++) {
@@ -4786,7 +4842,7 @@
     }
 
     else if (variant === 'spiralbars') {
-      const segs = 90;
+      const segs = Math.max(20, Math.round(90 * barCountMult));
       const musicStart = Math.floor(bufferLength * 0.08);
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.6, 2.2, true);
       const maxR = Math.min(w, h) * 0.36;
@@ -4805,7 +4861,7 @@
     }
 
     else if (variant === 'framebars') {
-      const segs = 60;
+      const segs = Math.max(16, Math.round(60 * barCountMult));
       const perSide = Math.floor(segs / 4);
       const musicStart = Math.floor(bufferLength * 0.08);
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.55, 2.2, true);
@@ -4834,7 +4890,7 @@
     }
 
     else if (variant === 'dotsminimal') {
-      const dots = 60;
+      const dots = Math.max(14, Math.round(60 * barCountMult));
       const half = dots / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.55;
       const beatVals = smoothedBandValues(freqData, bufferLength, half, beatStart, beatEndFrac, 2.4, false);
@@ -4851,7 +4907,7 @@
     }
 
     else if (variant === 'barsminimal') {
-      const bars = 70;
+      const bars = Math.max(16, Math.round(70 * barCountMult));
       const barW = w / bars;
       const half = bars / 2;
       const beatStart = Math.floor(bufferLength * 0.08), beatEndFrac = 0.22, musicEndFrac = 0.6;
