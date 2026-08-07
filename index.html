@@ -4822,7 +4822,7 @@
       const baseR = Math.min(w, h) * 0.26;
       const musicStart = Math.floor(bufferLength * 0.08);
       const vals = smoothedBandValues(freqData, bufferLength, segs, musicStart, 0.55, 2.6, true);
-      const capW = Math.max(2, (baseR * 2 * Math.PI / segs) * 0.62 * barWidMult);
+      const capW = Math.max(1.2, (baseR * 2 * Math.PI / segs) * 0.32 * barWidMult);
       for (let i = 0; i < segs; i++) {
         const v = vals[i];
         const minLen = Math.min(w, h) * 0.018;
